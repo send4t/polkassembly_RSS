@@ -39,6 +39,7 @@ export default async function handler(req, res) {
 }
 
 // Fetch referendums from Polkassembly API
+// Fetch referendums from Polkassembly API
 async function fetchReferendums() {
     try {
         // Fetch from Polkassembly API
@@ -57,20 +58,30 @@ async function fetchReferendums() {
 
         // Parse response
         const data = await response.json();
-        console.log('Fetched data:', data); // Log the entire response
 
         // Ensure the data has the expected structure
         if (!data || !data.posts) {
             throw new Error('Unexpected response structure from Polkassembly API.');
         }
 
-        return data.posts;
+        // Get the current time and 24 hours ago
+        const now = new Date();
+        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+        // Filter posts from the last 24 hours
+        const recentPosts = data.posts.filter(post => {
+            const postDate = new Date(post.created_at);
+            return postDate >= twentyFourHoursAgo && postDate <= now;
+        });
+
+        return recentPosts;
 
     } catch (error) {
         console.error('Error fetching referendums:', error.message);
         throw error; // Propagate the error for the handler to catch
     }
 }
+
 
 // Fetch content of a specific referendum post by ID
 async function fetchReferendumContent(postId) {
