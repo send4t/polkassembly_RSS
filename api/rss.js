@@ -21,6 +21,7 @@ export default async function handler(req, res) {
                     track_number: content.track_number || 'No track number available', // Adding track number
                     origin: content.origin || 'No origin information available', // Adding origin
                     timeline: content.timeline || [], // Adding timeline
+                    post_id: post.post_id // Include post_id
                 }; // Attach the fetched content and new fields
             })
         );
@@ -142,6 +143,7 @@ function generateRSSFeed(posts) {
             <reward>${escapeXML(post.reward || 'No reward information available')}</reward>
             <track_number>${escapeXML(post.track_number || 'No track number available')}</track_number>
             <origin>${escapeXML(post.origin || 'No origin information available')}</origin>
+            <post_id>${escapeXML(post.post_id)}</post_id> 
             <timeline>${generateTimelineXML(post.timeline)}</timeline>
         </item>
     `).join('');
