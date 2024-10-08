@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Fetch the latest referendums
+        // Fetch the latest referendums and discussions
         const posts = await fetchReferendums();
 
         // Fetch content for each post
@@ -21,6 +21,7 @@ export default async function handler(req, res) {
                     track_number: content.track_number || 'No track number available', // Adding track number
                     origin: content.origin || 'No origin information available', // Adding origin
                     timeline: content.timeline || [], // Adding timeline
+                    post_id: post.post_id // Include post_id
                 }; // Attach the fetched content and new fields
             })
         );
@@ -45,7 +46,7 @@ export default async function handler(req, res) {
     }
 }
 
-// Fetch referendums from Polkassembly API
+// Fetch referendums and discussions from Polkassembly API
 async function fetchReferendums() {
     try {
         const response = await fetch('https://api.polkassembly.io/api/v1/latest-activity/all-posts?govType=open_gov&listingLimit=10', {
@@ -142,6 +143,7 @@ function generateRSSFeed(posts) {
             <reward>${escapeXML(post.reward || 'No reward information available')}</reward>
             <track_number>${escapeXML(post.track_number || 'No track number available')}</track_number>
             <origin>${escapeXML(post.origin || 'No origin information available')}</origin>
+            <post_id>${escapeXML(post.post_id)}</post_id> <!-- Include post_id -->
             <timeline>${generateTimelineXML(post.timeline)}</timeline>
         </item>
     `).join('');
@@ -149,9 +151,9 @@ function generateRSSFeed(posts) {
     return `
     <rss version="2.0">
         <channel>
-            <title>Polkassembly Referendums</title>
+            <title>Polkassembly Referendums and Discussions</title>
             <link>https://yourwebsite.com</link>
-            <description>Latest referendums from Polkassembly.</description>
+            <description>Latest referendums and discussions from Polkassembly.</description>
             ${items}
         </channel>
     </rss>`;
@@ -162,17 +164,17 @@ function generateTimelineXML(timeline) {
     return timeline.map(event => `
         <event>
             <created_at>${new Date(event.created_at).toUTCString()}</created_at>
-            <hash>${escapeXML(event.hash)}</hash>
-            <statuses>${event.statuses.map(status => `
+            <hash>${escapeXML(event.hash || '')}</hash>
+            <statuses>${event.statuses ? event.statuses.map(status => `
                 <status>
                     <timestamp>${new Date(status.timestamp).toUTCString()}</timestamp>
                     <block>${escapeXML(status.block.toString())}</block>
                     <statusText>${escapeXML(status.status)}</statusText>
                 </status>
-            `).join('')}
+            `).join('') : 'No statuses available'}
             </statuses>
         </event>
-    `).join('');
+    `).join('') || 'No timeline available';
 }
 
 // Generate an empty RSS feed when no referendums are available
@@ -180,9 +182,9 @@ function generateEmptyRSSFeed() {
     return `
     <rss version="2.0">
         <channel>
-            <title>Polkassembly Referendums</title>
+            <title>Polkassembly Referendums and Discussions</title>
             <link>https://yourwebsite.com</link>
-            <description>No referendums available at this time.</description>
+            <description>No referendums or discussions available at this time.</description>
         </channel>
     </rss>`;
 }
