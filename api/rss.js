@@ -168,7 +168,7 @@ function generateTimelineXML(timeline) {
             <statuses>${event.statuses ? event.statuses.map(status => `
                 <status>
                     <timestamp>${new Date(status.timestamp).toUTCString()}</timestamp>
-                    <block>${escapeXML(status.block.toString())}</block>
+                    <block>${status.block ? escapeXML(status.block.toString()) : 'No block information available'}</block>
                     <statusText>${escapeXML(status.status)}</statusText>
                 </status>
             `).join('') : 'No statuses available'}
@@ -176,6 +176,7 @@ function generateTimelineXML(timeline) {
         </event>
     `).join('') || 'No timeline available';
 }
+
 
 // Generate an empty RSS feed when no referendums are available
 function generateEmptyRSSFeed() {
