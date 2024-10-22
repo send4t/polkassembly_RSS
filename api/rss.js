@@ -73,10 +73,10 @@ async function fetchReferendums() {
         const now = new Date();
         const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-        // Filter posts from the last 24 hours
+        // Filter posts from the last 24 hours and exclude those with postId above 2500
         const recentPosts = data.posts.filter(post => {
             const postDate = new Date(post.created_at);
-            return postDate >= twentyFourHoursAgo && postDate <= now;
+            return postDate >= twentyFourHoursAgo && postDate <= now && post.post_id <= 2500; // Filter by post_id
         });
 
         return recentPosts;
