@@ -1,4 +1,4 @@
-import fetch from 'node-fetch'; 
+import fetch from 'node-fetch';
 
 export default async function handler(req, res) {
     // Check if the method is GET
@@ -10,19 +10,23 @@ export default async function handler(req, res) {
         // Fetch the latest referendums and discussions
         const posts = await fetchReferendums();
 
-        // Fetch content for each post
+        // Fetch DOT/USD exchange rate
+        const dotToUsdRate = await fetchDotToUsdRate();
+
+        // Fetch content for each post and calculate rewards in USD or USDT
         const postsWithContent = await Promise.all(
             posts.map(async (post) => {
                 const content = await fetchReferendumContent(post.post_id);
+                const reward = extractReward(content, dotToUsdRate);
                 return { 
                     ...post, 
                     content: content.content || 'No content available', 
-                    reward: extractReward(content), // Extracting the reward
-                    track_number: content.track_number || 'No track number available', // Adding track number
-                    origin: content.origin || 'No origin information available', // Adding origin
-                    timeline: content.timeline || [], // Adding timeline
-                    post_id: post.post_id // Include post_id
-                }; // Attach the fetched content and new fields
+                    reward: reward, // Display reward in USD or USDT
+                    track_number: content.track_number || 'No track number available', 
+                    origin: content.origin || 'No origin information available', 
+                    timeline: content.timeline || [], 
+                    post_id: post.post_id 
+                };
             })
         );
 
@@ -38,10 +42,7 @@ export default async function handler(req, res) {
         res.status(200).send(rssFeed);
 
     } catch (error) {
-        // Log the error for debugging
         console.error('Error generating RSS feed:', error.message);
-
-        // Send a 500 Internal Server Error response
         res.status(500).json({ error: 'Internal Server Error' });
     }
 }
@@ -52,38 +53,30 @@ async function fetchReferendums() {
         const response = await fetch('https://api.polkassembly.io/api/v1/latest-activity/all-posts?govType=open_gov&listingLimit=10', {
             method: 'GET',
             headers: {
-                'x-network': 'polkadot', // Adjust to 'polkadot' if needed
+                'x-network': 'polkadot', 
                 'Content-Type': 'application/json'
             }
         });
 
-        // Check for response errors
         if (!response.ok) {
             throw new Error(`Error fetching data: ${response.status} ${response.statusText}`);
         }
 
         const data = await response.json();
 
-        // Ensure the data has the expected structure
-        if (!data || !data.posts) {
-            throw new Error('Unexpected response structure from Polkassembly API.');
-        }
-
-        // Get the current time and 24 hours ago
         const now = new Date();
         const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-        // Filter posts from the last 24 hours and exclude those with postId above 2500
         const recentPosts = data.posts.filter(post => {
             const postDate = new Date(post.created_at);
-            return postDate >= twentyFourHoursAgo && postDate <= now && post.post_id <= 2500; // Filter by post_id
+            return postDate >= twentyFourHoursAgo && postDate <= now && post.post_id <= 2500;
         });
 
         return recentPosts;
 
     } catch (error) {
         console.error('Error fetching referendums:', error.message);
-        throw error; // Propagate the error for the handler to catch
+        throw error;
     }
 }
 
@@ -93,7 +86,7 @@ async function fetchReferendumContent(postId) {
         const response = await fetch(`https://api.polkassembly.io/api/v1/posts/on-chain-post?postId=${postId}&proposalType=referendums_v2`, {
             method: 'GET',
             headers: {
-                'x-network': 'polkadot', // Adjust to 'polkadot' if needed
+                'x-network': 'polkadot',
                 'Content-Type': 'application/json'
             }
         });
@@ -103,32 +96,42 @@ async function fetchReferendumContent(postId) {
         }
 
         const postContent = await response.json();
-        return postContent; // Return the full content object
+        return postContent;
 
     } catch (error) {
         console.error('Error fetching referendum content:', error.message);
-        return { content: 'No content available' }; // Fallback content in case of an error
+        return { content: 'No content available' };
     }
 }
 
-// Function to extract reward based on assetId
-function extractReward(content) {
+// Fetch DOT/USD exchange rate
+async function fetchDotToUsdRate() {
+    try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=polkadot&vs_currencies=usd');
+        const data = await response.json();
+        return data.polkadot.usd || 0;
+    } catch (error) {
+        console.error('Error fetching DOT/USD rate:', error.message);
+        return 0;
+    }
+}
+
+// Extract reward and convert to USD or show USDT
+function extractReward(content, dotToUsdRate) {
     if (content.beneficiaries && content.beneficiaries.length > 0) {
-        const beneficiary = content.beneficiaries[0]; // Assuming the first beneficiary is the relevant one
-        if (beneficiary.amount) {
-            if (content.assetId === '1984') {
-                const usdtAmount = (BigInt(beneficiary.amount) / BigInt(1e6)).toString(); // Convert from smallest unit
-                return `${usdtAmount} USDT`; // Return as USDT
-            }
+        const beneficiary = content.beneficiaries[0];
+        if (content.assetId === '1984') {
+            const usdtAmount = (BigInt(beneficiary.amount) / BigInt(1e6)).toString();
+            return `${usdtAmount} USDT`;
         }
     }
     
-    // If assetId is not '1984', check for requested DOT amount
     if (content.proposer && content.requested) {
-        const dotAmount = (BigInt(content.requested) / BigInt(1e10)).toString(); // Adjust if needed for smallest unit
-        return `${dotAmount} DOT`; // Return as DOT
+        const dotAmount = BigInt(content.requested) / BigInt(1e10);
+        const usdValue = (parseFloat(dotAmount) * dotToUsdRate).toFixed(2);
+        return `$${usdValue} USD`;
     }
-
+    
     return 'No reward information available';
 }
 
@@ -136,12 +139,12 @@ function extractReward(content) {
 function generateRSSFeed(posts) {
     const items = posts.map(post => {
         const pubDate = new Date(post.created_at).toUTCString();
-        const endDate = new Date(new Date(post.created_at).getTime() + 28 * 24 * 60 * 60 * 1000).toUTCString(); // Calculate end date as 28 days from pubDate
+        const endDate = new Date(new Date(post.created_at).getTime() + 28 * 24 * 60 * 60 * 1000).toUTCString();
         return `
             <item>
                 <title>${escapeXML(post.title)}</title>
                 <description>${escapeXML(post.content || 'No description available.')}</description>
-                <link>https://polkadot.polkassembly.io/post/${post.post_id}</link>
+                <link>https://polkadot.polkassembly.io/referendum/${post.post_id}</link>
                 <pubDate>${pubDate}</pubDate>
                 <endDate>${endDate}</endDate> 
                 <reward>${escapeXML(post.reward || 'No reward information available')}</reward>
@@ -157,7 +160,7 @@ function generateRSSFeed(posts) {
     <rss version="2.0">
         <channel>
             <title>Polkassembly Referendums and Discussions</title>
-            <link>https://yourwebsite.com</link>
+            <link>polkadothungary.net</link>
             <description>Latest referendums and discussions from Polkassembly.</description>
             ${items}
         </channel>
@@ -188,7 +191,7 @@ function generateEmptyRSSFeed() {
     <rss version="2.0">
         <channel>
             <title>Polkassembly Referendums and Discussions</title>
-            <link>https://yourwebsite.com</link>
+            <link>polkadothungary.net</link>
             <description>No referendums or discussions available at this time.</description>
         </channel>
     </rss>`;
@@ -196,11 +199,9 @@ function generateEmptyRSSFeed() {
 
 // Helper function to escape XML characters
 function escapeXML(str) {
-    // Convert to a string if it's not already, or use an empty string for null/undefined values
     if (typeof str !== 'string') {
         str = String(str || '');
     }
-
     return str.replace(/&/g, '&amp;')
               .replace(/</g, '&lt;')
               .replace(/>/g, '&gt;')
