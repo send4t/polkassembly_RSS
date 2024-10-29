@@ -1,4 +1,4 @@
-import fetch from 'node-fetch'; // Ensure you're using ES module syntax if you're using imports
+import fetch from 'node-fetch'; 
 
 export default async function handler(req, res) {
     // Check if the method is GET
@@ -134,19 +134,24 @@ function extractReward(content) {
 
 // Generate the RSS feed
 function generateRSSFeed(posts) {
-    const items = posts.map(post => `
-        <item>
-            <title>${escapeXML(post.title)}</title>
-            <description>${escapeXML(post.content || 'No description available.')}</description>
-            <link>https://polkadot.polkassembly.io/post/${post.post_id}</link>
-            <pubDate>${new Date(post.created_at).toUTCString()}</pubDate>
-            <reward>${escapeXML(post.reward || 'No reward information available')}</reward>
-            <track_number>${escapeXML(post.track_number || 'No track number available')}</track_number>
-            <origin>${escapeXML(post.origin || 'No origin information available')}</origin>
-            <post_id>${escapeXML(post.post_id)}</post_id> <!-- Include post_id -->
-            <timeline>${generateTimelineXML(post.timeline)}</timeline>
-        </item>
-    `).join('');
+    const items = posts.map(post => {
+        const pubDate = new Date(post.created_at).toUTCString();
+        const endDate = new Date(new Date(post.created_at).getTime() + 28 * 24 * 60 * 60 * 1000).toUTCString(); // Calculate end date as 28 days from pubDate
+        return `
+            <item>
+                <title>${escapeXML(post.title)}</title>
+                <description>${escapeXML(post.content || 'No description available.')}</description>
+                <link>https://polkadot.polkassembly.io/post/${post.post_id}</link>
+                <pubDate>${pubDate}</pubDate>
+                <endDate>${endDate}</endDate> 
+                <reward>${escapeXML(post.reward || 'No reward information available')}</reward>
+                <track_number>${escapeXML(post.track_number || 'No track number available')}</track_number>
+                <origin>${escapeXML(post.origin || 'No origin information available')}</origin>
+                <post_id>${escapeXML(post.post_id)}</post_id> 
+                <timeline>${generateTimelineXML(post.timeline)}</timeline>
+            </item>
+        `;
+    }).join('');
 
     return `
     <rss version="2.0">
@@ -176,7 +181,6 @@ function generateTimelineXML(timeline) {
         </event>
     `).join('') || 'No timeline available';
 }
-
 
 // Generate an empty RSS feed when no referendums are available
 function generateEmptyRSSFeed() {
