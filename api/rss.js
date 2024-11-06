@@ -144,7 +144,7 @@ function generateRSSFeed(posts) {
             <item>
                 <title>${escapeXML(post.title)}</title>
                 <description>${escapeXML(post.content || 'No description available.')}</description>
-                <link>https://polkadot.polkassembly.io/referendum/${post.post_id}</link>
+                <link>https://polkadot.polkassembly.io/referenda/${post.post_id}</link>
                 <pubDate>${pubDate}</pubDate>
                 <endDate>${endDate}</endDate> 
                 <reward>${escapeXML(post.reward || 'No reward information available')}</reward>
