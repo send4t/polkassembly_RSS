@@ -1,166 +1,147 @@
-const axios = require('axios');
-const moment = require('moment');
-const notionDatabaseId = '117ca2a77d87817ab04fffee0f6c4ffd';
-const notionApiUrl = 'https://api.notion.com/v1/pages';
-const notionApiToken = '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';
+const axios = require("axios");
 
+const notionDatabaseId = "117ca2a77d87817ab04fffee0f6c4ffd";
+const notionApiUrl = "https://api.notion.com/v1/pages";
+const notionApiToken = "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";
 
-
-// Function to fetch data from the API (assumed you already have this)
-
+// Function to fetch data from Polkassembly API
 async function fetchDataFromAPI() {
-    try {
-        const url = 'https://api.polkassembly.io/api/v1/latest-activity/all-posts?govType=open_gov&listingLimit=10';
-        const response = await axios.get(url, {
-            headers: {
-                'x-network': 'polkadot'  // Replace with the appropriate network identifier if different
-            }
-        });
-        console.log(response.data);
-    } catch (error) {
-        if (error.response) {
-            console.error('Error fetching data from API:', error.response.status, error.response.data);
-        } else {
-            console.error('Request error:', error.message);
-        }
-    }
-}
-
-fetchDataFromAPI();
-
-// Function to update Notion database
-async function updateNotionDatabase(data) {
   try {
-    for (const item of data) {
-      const nameField = item.name; // Assuming "name" is the field with the ID and title
+    console.log("Fetching data from Polkassembly API...");
+    const url =
+      "https://api.polkassembly.io/api/v1/latest-activity/all-posts?govType=open_gov&listingLimit=50";
+    const response = await axios.get(url, {
+      headers: {
+        "x-network": "polkadot", // Replace with the appropriate network identifier if different
+      },
+    });
 
-      // Extracting the post_id from the name field
-      const postIdMatch = nameField.match(/#(\d+)/); // Match any number after "#"
-      const postId = postIdMatch ? postIdMatch[1] : null;
+    // Debugging: Log the structure of the response
+    console.log("API Response Structure:", JSON.stringify(response.data, null, 2));
 
-      if (postId) {
-        const notionPageData = {
-          parent: { database_id: notionDatabaseId },
-          properties: {
-            Name: {
-              title: [
-                {
-                  text: {
-                    content: nameField,
-                  },
-                },
-              ],
-            },
-            Post_ID: {
-              rich_text: [
-                {
-                  text: {
-                    content: postId,
-                  },
-                },
-              ],
-            },
-            Created_Time: {
-              date: {
-                start: moment(item.created_time).toISOString(),
-              },
-            },
-          },
-        };
-
-        // Check if the page with the post_id already exists
-        const existingPage = await findNotionPageByPostId(postId);
-        if (existingPage) {
-          // Update existing page
-          await updateNotionPage(existingPage.id, notionPageData);
-        } else {
-          // Create a new page
-          await createNotionPage(notionPageData);
-        }
-      } else {
-        console.log(`No valid post ID found in name field: ${nameField}`);
-      }
-    }
+    // Adjust to match the actual structure (example assumes posts are in `response.data.posts`)
+    return response.data.posts || []; // Use `|| []` as a fallback if `posts` is undefined
   } catch (error) {
-    console.error("Error updating Notion database:", error);
+    console.error(
+      "Error fetching data from Polkassembly API:",
+      error.response ? error.response.status : error.message
+    );
+    return [];
   }
 }
 
-// Function to find an existing Notion page by post_id
+// Function to query Notion database for a matching "Number" (post_id)
 async function findNotionPageByPostId(postId) {
   try {
+    console.log("Querying Notion with postId:", postId);
+
     const response = await axios.post(
       `https://api.notion.com/v1/databases/${notionDatabaseId}/query`,
       {
         filter: {
-          property: 'Post_ID',
-          rich_text: {
-            equals: postId,
+          property: "Number", // Adjust this to match your schema
+          number: {
+            equals: parseInt(postId), // Ensure postId type matches the database
           },
         },
       },
       {
         headers: {
           Authorization: `Bearer ${notionApiToken}`,
-          'Notion-Version': '2024-11-01', // Update to the latest version of the Notion API
+          "Notion-Version": "2022-06-28", // Use a valid API version
         },
       }
     );
 
-    const results = response.data.results;
-    if (results.length > 0) {
-      return results[0]; // Assuming you want to match by the first result
-    } else {
-      return null;
-    }
+    console.log("Query Response:", JSON.stringify(response.data, null, 2));
+    return response.data.results.length > 0 ? response.data.results[0] : null;
   } catch (error) {
-    console.error("Error finding Notion page by post_id:", error);
+    console.error("Error querying Notion database:", error.response?.data || error.message);
     return null;
   }
 }
 
-// Function to create a new page in Notion
-async function createNotionPage(notionPageData) {
+// Function to update the "Timeline" property of a Notion page
+async function updateNotionTimeline(pageId, timelineStatus) {
   try {
-    const response = await axios.post(notionApiUrl, notionPageData, {
-      headers: {
-        Authorization: `Bearer ${notionApiToken}`,
-        'Notion-Version': '2024-11-01',
-      },
-    });
-    console.log("Notion page created:", response.data);
-  } catch (error) {
-    console.error("Error creating Notion page:", error);
-  }
-}
+    console.log("Updating timeline for page:", pageId, "with status:", timelineStatus);
 
-// Function to update an existing Notion page
-async function updateNotionPage(pageId, notionPageData) {
-  try {
+    // Define the valid status options for the "Timeline" property (if it's a Status field)
+    const validTimelineStatuses = [
+      "Lead-in",
+      "In Progress",
+      "Deciding",
+      "Confirmation",
+      "Enactment",
+      "Timed out",
+      "Executed"
+    ];
+
+    // Check if the provided status is valid
+    if (!validTimelineStatuses.includes(timelineStatus)) {
+      console.error(`Invalid timeline status: ${timelineStatus}. Valid options are: ${validTimelineStatuses.join(', ')}`);
+      return;
+    }
+
+    // Prepare the payload for updating the timeline status
+    const updatePayload = {
+      properties: {
+        Timeline: {
+          status: {
+            name: timelineStatus, // For Status type field, use `status` instead of `select`
+          },
+        },
+      },
+    };
+
+    console.log("Payload being sent to Notion:", JSON.stringify(updatePayload, null, 2));
+
     const response = await axios.patch(
-      `https://api.notion.com/v1/pages/${pageId}`,
-      notionPageData,
+      `${notionApiUrl}/${pageId}`,
+      updatePayload,
       {
         headers: {
           Authorization: `Bearer ${notionApiToken}`,
-          'Notion-Version': '2024-11-01',
+          "Notion-Version": "2022-06-28", // Use the correct Notion API version
         },
       }
     );
-    console.log("Notion page updated:", response.data);
+
+    console.log("Notion page successfully updated:", response.data);
   } catch (error) {
-    console.error("Error updating Notion page:", error);
+    console.error(
+      `Error updating timeline for Notion page ${pageId}:`,
+      error.response?.data || error.message
+    );
   }
 }
 
-// Main process
+// Main function to fetch data and update Notion
 async function main() {
-  const dataFromAPI = await fetchDataFromAPI();
-  if (dataFromAPI && dataFromAPI.length > 0) {
-    await updateNotionDatabase(dataFromAPI);
-  } else {
-    console.log("No data found from API.");
+  console.log("Starting process for all proposals...");
+
+  const apiData = await fetchDataFromAPI();
+  if (!apiData || !Array.isArray(apiData)) {
+    console.error("API data is not in an iterable format. Exiting.");
+    return;
   }
+
+  for (const specificPost of apiData) {
+    const postId = specificPost.post_id;
+    const timelineStatus = specificPost.status; // Use the "status" field from the API
+
+    console.log(`Processing post_id: ${postId}, timelineStatus: ${timelineStatus}`);
+
+    const notionPage = await findNotionPageByPostId(postId);
+    if (notionPage) {
+      console.log(`Found Notion page: ${notionPage.id} for post_id: ${postId}`);
+      await updateNotionTimeline(notionPage.id, timelineStatus);
+    } else {
+      console.log(`No matching Notion page found for post_id: ${postId}`);
+    }
+  }
+
+  console.log("Process completed for all proposals.");
 }
 
 main();
