@@ -9,7 +9,7 @@ async function fetchDataFromAPI() {
   try {
     console.log("Fetching data from Polkassembly API...");
     const url =
-      "https://api.polkassembly.io/api/v1/latest-activity/all-posts?govType=open_gov&listingLimit=50";
+      "https://api.polkassembly.io/api/v1/latest-activity/all-posts?govType=open_gov&listingLimit=99";
     const response = await axios.get(url, {
       headers: {
         "x-network": "polkadot", // Replace with the appropriate network identifier if different
@@ -71,9 +71,11 @@ async function updateNotionTimeline(pageId, timelineStatus) {
       "Lead-in",
       "In Progress",
       "Deciding",
+      "Submitted",
       "Confirmation",
       "Enactment",
-      "Timed out",
+      "DecisionDepositPlaced",
+      "TimedOut",
       "Executed"
     ];
 
