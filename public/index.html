@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Run Update</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    button {
+      padding: 15px 30px;
+      font-size: 18px;
+      color: white;
+      background-color: #0070f3;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #005bb5;
+    }
+  </style>
+</head>
+<body>
+  <button id="runUpdate">Run Update</button>
+
+  <script>
+    document.getElementById("runUpdate").addEventListener("click", async () => {
+      alert("Starting the update process. This may take a while...");
+      try {
+        const response = await fetch("/api/run-update", { method: "POST" });
+        const result = await response.text();
+        if (response.ok) {
+          alert("Update completed successfully!");
+        } else {
+          alert(`Error: ${result}`);
+        }
+      } catch (err) {
+        console.error("Error:", err);
+        alert("An error occurred while running the update.");
+      }
+    });
+  </script>
+</body>
+</html>

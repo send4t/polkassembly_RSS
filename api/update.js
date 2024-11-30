@@ -7,20 +7,18 @@ const notionApiToken = "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";
 // Function to fetch data from Polkassembly API
 async function fetchDataFromAPI() {
   try {
-    console.log("Fetching data from Polkassembly API...");
+    console.log("Fetching recent data from Polkassembly API...");
     const url =
-      "https://api.polkassembly.io/api/v1/latest-activity/all-posts?govType=open_gov&listingLimit=99";
+      "https://api.polkassembly.io/api/v1/latest-activity/all-posts?govType=open_gov&listingLimit=200"; // Fetch a reasonable number (e.g., last 200 posts)
+
     const response = await axios.get(url, {
       headers: {
         "x-network": "polkadot", // Replace with the appropriate network identifier if different
       },
     });
 
-    // Debugging: Log the structure of the response
-    console.log("API Response Structure:", JSON.stringify(response.data, null, 2));
-
-    // Adjust to match the actual structure (example assumes posts are in `response.data.posts`)
-    return response.data.posts || []; // Use `|| []` as a fallback if `posts` is undefined
+    console.log(`Fetched ${response.data.posts.length} posts from API.`);
+    return response.data.posts || [];
   } catch (error) {
     console.error(
       "Error fetching data from Polkassembly API:",
@@ -29,6 +27,7 @@ async function fetchDataFromAPI() {
     return [];
   }
 }
+
 
 // Function to query Notion database for a matching "Number" (post_id)
 async function findNotionPageByPostId(postId) {
@@ -128,7 +127,13 @@ async function main() {
     return;
   }
 
-  for (const specificPost of apiData) {
+  // Filter posts to match the Notion post ID range (adjust range as needed)
+  const filteredPosts = apiData.filter(
+    (post) => post.post_id >= 1273 && post.post_id <= 1400
+  );
+  console.log(`Filtered posts: ${filteredPosts.length} within ID range 1273-1400`);
+
+  for (const specificPost of filteredPosts) {
     const postId = specificPost.post_id;
     const timelineStatus = specificPost.status; // Use the "status" field from the API
 
@@ -146,4 +151,4 @@ async function main() {
   console.log("Process completed for all proposals.");
 }
 
-main();
+module.exports = { main };
