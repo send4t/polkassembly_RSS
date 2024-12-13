@@ -1,5 +1,6 @@
-// run-update.js
 const { main } = require("./update");
+
+let lastProcessedPostId = null;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -7,16 +8,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    let lastProcessedPostId = parseInt(req.body.lastProcessedPostId || 1229, 10); // Default to 1229 if not passed
-    console.log(`Starting update from post ID: ${lastProcessedPostId}`);
+    if (req.body.reset) {
+      lastProcessedPostId = parseInt(req.body.lastProcessedPostId || 1229, 10);
+      console.log(`Starting update process from post ID: ${lastProcessedPostId}`);
+    }
 
-    // Call the main update function with the last processed post ID
-    const nextPostId = await main(lastProcessedPostId); // Assuming `main` accepts the starting post ID
+    // Process the next batch
+    const nextPostId = await main(lastProcessedPostId);
+    lastProcessedPostId = nextPostId;
 
-    // Return the nextPostId to continue from where the batch left off
-    return res.status(200).json({ nextPostId });
+    res.status(200).json({
+      message: `Processed posts up to ID: ${lastProcessedPostId}`,
+      nextPostId: lastProcessedPostId,
+    });
   } catch (error) {
-    console.error("Error running update:", error.message);
-    return res.status(500).send("An error occurred during the update process.");
+    console.error("Error during update:", error.message);
+    res.status(500).json({ error: error.message });
   }
 }
