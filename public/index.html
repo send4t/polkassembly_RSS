@@ -32,21 +32,34 @@
   <button id="runUpdate">Run Update</button>
 
   <script>
+    let lastProcessedPostId = 1278; // Starting point
+
     document.getElementById("runUpdate").addEventListener("click", async () => {
       alert("Starting the update process. This may take a while...");
       try {
-        const response = await fetch("/api/run-update", { method: "POST" });
-        const result = await response.text();
-        if (response.ok) {
-          alert("Update completed successfully!");
-        } else {
-          alert(`Error: ${result}`);
-        }
+        await updatePosts(lastProcessedPostId);
       } catch (err) {
         console.error("Error:", err);
         alert("An error occurred while running the update.");
       }
     });
+
+    async function updatePosts(lastProcessedPostId) {
+      const response = await fetch('/api/run-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lastProcessedPostId })
+      });
+
+      const data = await response.json();
+      lastProcessedPostId = data.nextPostId; // Update with the last processed post ID
+
+      if (lastProcessedPostId < 1400) { // Stop when reaching the last post ID (1400 in your case)
+        await updatePosts(lastProcessedPostId); // Continue with the next batch
+      } else {
+        alert('All posts processed.');
+      }
+    }
   </script>
 </body>
 </html>
