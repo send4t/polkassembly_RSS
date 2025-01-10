@@ -112,4 +112,4 @@ async function findNotionPageByPostId(postId) {
   }
 }
 
-module.exports = { main };
+module.exports = { main, fetchDataFromAPI };
