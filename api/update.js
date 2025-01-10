@@ -1,9 +1,30 @@
 // update.js
 const axios = require("axios");
 require('dotenv').config();
+const { fetchReferendumContent } = require('./rss');
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
+
+// Handle a single Referenda element, when updating referendas. Called by refreshReferendas
+async function handleReferenda(referenda) {
+  console.log("ID: ", referenda.post_id)
+  const content = await fetchReferendumContent(referenda.post_id);
+
+  console.info("Title: ", referenda.title);
+  console.info("Amount: ", content.requested);
+  console.info("Description: ", content.content);
+  console.info("Status: ", content.status);
+
+  const findResult = await findNotionPageByPostId(referenda.post_id);
+  //console.log("findResult: ", findResult);
+  if (findResult) {
+      // UPDATE
+  } else {
+      // CREATE
+  }
+}
+
 
 // Function to fetch data from Polkassembly API
 async function fetchDataFromAPI(startPostId) {
@@ -112,4 +133,4 @@ async function findNotionPageByPostId(postId) {
   }
 }
 
-module.exports = { main, fetchDataFromAPI };
+module.exports = { main, fetchDataFromAPI, findNotionPageByPostId, handleReferenda };

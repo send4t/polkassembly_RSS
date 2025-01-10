@@ -1,6 +1,6 @@
-import fetch from 'node-fetch';
+const axios = require("axios");
 
-export default async function handler(req, res) {
+async function handler(req, res) {
     // Check if the method is GET
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method Not Allowed' });
@@ -83,20 +83,22 @@ async function fetchReferendums() {
 // Fetch content of a specific referendum post by ID
 async function fetchReferendumContent(postId) {
     try {
-        const response = await fetch(`https://api.polkassembly.io/api/v1/posts/on-chain-post?postId=${postId}&proposalType=referendums_v2`, {
-            method: 'GET',
+        const response = await axios.get('https://api.polkassembly.io/api/v1/posts/on-chain-post', {
+            params: {
+              postId: postId,
+              proposalType: 'referendums_v2',
+            },
             headers: {
-                'x-network': 'polkadot',
-                'Content-Type': 'application/json'
-            }
-        });
+              'x-network': 'polkadot',
+              'Content-Type': 'application/json',
+            },
+          });
 
-        if (!response.ok) {
+        if (response.status !== 200) {
             throw new Error(`Error fetching post content: ${response.status} ${response.statusText}`);
         }
 
-        const postContent = await response.json();
-        return postContent;
+        return response.data;
 
     } catch (error) {
         console.error('Error fetching referendum content:', error.message);
@@ -208,3 +210,5 @@ function escapeXML(str) {
               .replace(/"/g, '&quot;')
               .replace(/'/g, '&apos;');
 }
+
+module.exports = { fetchReferendums, fetchReferendumContent, fetchDotToUsdRate, extractReward };
