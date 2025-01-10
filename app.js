@@ -2,6 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const { fetchDataFromAPI, handleReferenda } = require('./api/update');
+const { fetchDotToUsdRate } = require('./api/rss');
 
 dotenv.config();
 
@@ -18,10 +19,11 @@ let startId = 1200;
 
 async function refreshReferendas() {
     const referendas = await fetchDataFromAPI(startId);
+    const dotToUsdRate = await fetchDotToUsdRate();
 
     for (let i = 0; i < referendas.length; i++) {
-        console.log("Referenda: ", referendas[i]);
-        await handleReferenda(referendas[i]);
+        //console.log("Referenda: ", referendas[i]);
+        await handleReferenda(referendas[i], dotToUsdRate);
     }
 }
 

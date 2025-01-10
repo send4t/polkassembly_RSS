@@ -1,27 +1,91 @@
 // update.js
 const axios = require("axios");
 require('dotenv').config();
-const { fetchReferendumContent } = require('./rss');
+const { fetchReferendumContent, extractReward } = require('./rss');
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 
 // Handle a single Referenda element, when updating referendas. Called by refreshReferendas
-async function handleReferenda(referenda) {
+async function handleReferenda(referenda, dotToUsdRate) {
   console.log("ID: ", referenda.post_id)
   const content = await fetchReferendumContent(referenda.post_id);
 
-  console.info("Title: ", referenda.title);
-  console.info("Amount: ", content.requested);
-  console.info("Description: ", content.content);
-  console.info("Status: ", content.status);
+  //console.log("Content.assetId: ", content);
+
+  const reward = extractReward(content, dotToUsdRate);
+  console.log("Reward: ", reward);
+  return;
+
+  console.log("assetId: ", content.assetId)
+  if (content.assetId === null) {
+    const plancks = content.requested || 0;
+    console.info("This is DOT: ", plancks / Math.pow(10,10));
+  }
+
+  if (content.assetId == 1984 || content.assetId == 1337) {
+    const largenum = content.requested || 0;
+    console.info("This is USD (USDC or USDT): ", largenum / Math.pow(10,6));      // It's important that USDC and USDT has both 6 decimals
+  }
+
+  //console.info("Title: ", referenda.title);
+  //console.info("Amount: ", content.requested);
+  //console.info("Description: ", content.content);
+  //console.info("Status: ", content.status);
 
   const findResult = await findNotionPageByPostId(referenda.post_id);
   //console.log("findResult: ", findResult);
   if (findResult) {
       // UPDATE
+      await checkPropertyType(findResult.id)
+      await updateReferenda(findResult.id, 333)
   } else {
       // CREATE
+      console.log("No");
+  }
+}
+
+// Check structure of Notion property
+async function checkPropertyType(pageId) {
+    try {
+      const response = await axios.get(`https://api.notion.com/v1/pages/${pageId}`, {
+          headers: {
+              'Authorization': `Bearer ${process.env.NOTION_API_TOKEN}`,
+              'Notion-Version': process.env.NOTION_VERSION,
+          },
+      });
+      console.log('Property structure:', response.data.properties['Requested $']);
+  } catch (error) {
+      console.error('Error checking property:', error);
+  }
+}
+
+// Update a Referenda
+async function updateReferenda(pageId, amount) {
+  const notionApiUrl = 'https://api.notion.com/v1/pages/' + pageId;
+
+  const data = {
+    properties: {
+        'Requested $': {
+            type: 'number',  // This was missing in your original code
+            number: amount
+        },
+    }
+  };
+
+  try {
+    const response = await axios.patch(notionApiUrl, data, {
+        headers: {
+            'Authorization': `Bearer ${process.env.NOTION_API_TOKEN}`,
+            'Content-Type': 'application/json',
+            'Notion-Version': process.env.NOTION_VERSION,
+        },
+    });
+
+    console.log('Page updated successfully:', response.data);
+  } catch (error) {
+    console.error('Error updating page:', error.message);
+    console.error(error)
   }
 }
 
