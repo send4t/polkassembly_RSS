@@ -14,14 +14,9 @@ app.get('/', (req, res) => {
     res.send('Hello, world! The app is running.');
 });
 
-// Example POST route
-app.post('/example-delete-later', (req, res) => {
-    const data = req.body;
-    console.log('Received data:', data);
-    res.status(200).send('Data received successfully.');
-});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`OpenGov Voting tool is runing, port: ${PORT}`);
 });
