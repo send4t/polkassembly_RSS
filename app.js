@@ -18,7 +18,10 @@ app.get('/', (req, res) => {
 let startId = 1200;
 
 async function refreshReferendas() {
-    const referendas = await fetchDataFromAPI(startId);
+    const referendas = await fetchDataFromAPI(startId, 1);
+    console.log("Referendas: ", referendas);
+    console.log("referenda count: ", referendas.length);
+    return;    
     const dotToUsdRate = await fetchDotToUsdRate();
 
     for (let i = 0; i < referendas.length; i++) {

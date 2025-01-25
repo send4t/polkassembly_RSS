@@ -13,6 +13,7 @@ async function handleReferenda(referenda, dotToUsdRate) {
 
   //console.log("Content.assetId: ", content);
 
+  // !! Nem mindig jól csinálja a számításokat.
   const reward = extractReward(content, dotToUsdRate);
   console.log("Reward: ", reward);
   return;
@@ -91,9 +92,9 @@ async function updateReferenda(pageId, amount) {
 
 
 // Function to fetch data from Polkassembly API
-async function fetchDataFromAPI(startPostId) {
+async function fetchDataFromAPI(startPostId, limit = 200) {
   try {
-    const url = `https://api.polkassembly.io/api/v1/latest-activity/all-posts?govType=open_gov&listingLimit=200&startPostId=${startPostId}`;
+    const url = `https://api.polkassembly.io/api/v1/latest-activity/all-posts?govType=open_gov&listingLimit=${limit}`;
     const response = await axios.get(url, {
       headers: {
         "x-network": "polkadot",
