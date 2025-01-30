@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Chain, CreateReferendumInput, NotionCreatePageRequest, NotionDatabaseId, NotionProperties, Origin, TimelineStatus, VoteStatus } from '../types/notion';
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
@@ -8,72 +9,16 @@ export async function createReferenda(databaseId: NotionDatabaseId, title: strin
   const notionApiUrl = 'https://api.notion.com/v1/pages';
   if (!notionDatabaseId) throw "Please specify NOTION_DATABASE_ID in .env!";
 
-  const data: NotionReferendaCreate = {
-    object: "page",
-    parent: { database_id: notionDatabaseId, type: "database_id" },
-    properties: {
-      'Name': {
-        type: 'title',
-        title: [{ text: { content: title } }]
-      },
-      'Requested $': {
-        type: 'number',
-        number: null
-      },
-      /*'Description': {
-        type: 'rich_text',
-        rich_text: [{ text: { content: "Hello World description" } }]
-      },
-      'Proposer': {
-        type: 'rich_text',
-        rich_text: [{ text: { content: "null" } }]
-      },
-      'Status': {
-        type: 'select',
-        select: { name: "null", id: undefined }
-      },
-      'Track Number': {
-        type: 'number',
-        number: null
-      },
-      'Hash': {
-        type: 'rich_text',
-        rich_text: [{ text: { content: "null" } }]
-      },
-      'Type': {
-        type: 'select',
-        select: { name: "null", id: undefined }
-      },
-      'Created At': {
-        type: 'date',
-        date: { start: new Date().toISOString() }
-      },
-      'Proposal Block': {
-        type: 'rich_text',
-        rich_text: [{ text: { content: "null" } }]
-      },
-      'Origin': {
-        type: 'rich_text',
-        rich_text: [{ text: { content: "null" } }]
-      },
-      'Spam Status': {
-        type: 'checkbox',
-        checkbox: false
-      },
-      'Spam Report Invalid': {
-        type: 'checkbox',
-        checkbox: false
-      },
-      'Spam Users Count': {
-        type: 'number',
-        number: null
-      }*/
-     'Chain': {
-        type: 'select',
-        select: { name: "Polkadot"}
-     }
-    },
-  };
+  const properties: CreateReferendumInput = {
+    name: "Enums",
+    requestedAmount: 320,
+    chain: Chain.Polkadot,
+    origin: Origin.SmallSpender,
+    timeline: TimelineStatus.Deciding,
+    status: VoteStatus.Considering 
+  }
+
+  const data = prepareNotionData(databaseId, properties);
   
 
   try {
@@ -90,3 +35,62 @@ export async function createReferenda(databaseId: NotionDatabaseId, title: strin
     console.error('Error creating page:', (error as any).response ? (error as any).response.data : (error as any).message);
   }
 }
+
+function prepareNotionData(
+    databaseId: string, 
+    input: CreateReferendumInput
+  ): NotionCreatePageRequest {
+    const properties: NotionProperties = {};
+  
+    if (input.name) {
+      properties['Name'] = {
+        type: 'title',
+        title: [{ text: { content: input.name } }]
+      };
+    }
+  
+    if (input.requestedAmount !== undefined) {
+      properties['Requested $'] = {
+        type: 'number',
+        number: input.requestedAmount
+      };
+    }
+  
+    if (input.chain) {
+      properties['Chain'] = {
+        type: 'select',
+        select: { name: input.chain }
+      };
+    }
+  
+    if (input.origin) {
+      properties['Origin'] = {
+        type: 'select',
+        select: { name: input.origin }
+      };
+    }
+  
+    if (input.timeline) {
+      properties['Timeline'] = {
+        type: 'status',
+        status: { name: input.timeline }
+      };
+    }
+  
+    if (input.status) {
+      properties['Status'] = {
+        type: 'status',
+        status: { name: input.status }
+      };
+    }
+  
+    return {
+      object: 'page',
+      parent: {
+        database_id: databaseId,
+        type: 'database_id'
+      },
+      properties
+    };
+  }
+  

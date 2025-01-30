@@ -14,6 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createReferenda = createReferenda;
 const axios_1 = __importDefault(require("axios"));
+const notion_1 = require("../types/notion");
 const notionApiToken = process.env.NOTION_API_TOKEN;
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 /** Create a Referenda in the Notion database */
@@ -22,72 +23,15 @@ function createReferenda(databaseId, title, amount) {
         const notionApiUrl = 'https://api.notion.com/v1/pages';
         if (!notionDatabaseId)
             throw "Please specify NOTION_DATABASE_ID in .env!";
-        const data = {
-            object: "page",
-            parent: { database_id: notionDatabaseId, type: "database_id" },
-            properties: {
-                'Name': {
-                    type: 'title',
-                    title: [{ text: { content: title } }]
-                },
-                'Requested $': {
-                    type: 'number',
-                    number: null
-                },
-                /*'Description': {
-                  type: 'rich_text',
-                  rich_text: [{ text: { content: "Hello World description" } }]
-                },
-                'Proposer': {
-                  type: 'rich_text',
-                  rich_text: [{ text: { content: "null" } }]
-                },
-                'Status': {
-                  type: 'select',
-                  select: { name: "null", id: undefined }
-                },
-                'Track Number': {
-                  type: 'number',
-                  number: null
-                },
-                'Hash': {
-                  type: 'rich_text',
-                  rich_text: [{ text: { content: "null" } }]
-                },
-                'Type': {
-                  type: 'select',
-                  select: { name: "null", id: undefined }
-                },
-                'Created At': {
-                  type: 'date',
-                  date: { start: new Date().toISOString() }
-                },
-                'Proposal Block': {
-                  type: 'rich_text',
-                  rich_text: [{ text: { content: "null" } }]
-                },
-                'Origin': {
-                  type: 'rich_text',
-                  rich_text: [{ text: { content: "null" } }]
-                },
-                'Spam Status': {
-                  type: 'checkbox',
-                  checkbox: false
-                },
-                'Spam Report Invalid': {
-                  type: 'checkbox',
-                  checkbox: false
-                },
-                'Spam Users Count': {
-                  type: 'number',
-                  number: null
-                }*/
-                'Chain': {
-                    type: 'select',
-                    select: { name: "Polkadot" }
-                }
-            },
+        const properties = {
+            name: "Enums",
+            requestedAmount: 320,
+            chain: notion_1.Chain.Polkadot,
+            origin: notion_1.Origin.SmallSpender,
+            timeline: notion_1.TimelineStatus.Deciding,
+            status: notion_1.VoteStatus.Considering
         };
+        const data = prepareNotionData(databaseId, properties);
         try {
             const response = yield axios_1.default.post(notionApiUrl, data, {
                 headers: {
@@ -102,4 +46,51 @@ function createReferenda(databaseId, title, amount) {
             console.error('Error creating page:', error.response ? error.response.data : error.message);
         }
     });
+}
+function prepareNotionData(databaseId, input) {
+    const properties = {};
+    if (input.name) {
+        properties['Name'] = {
+            type: 'title',
+            title: [{ text: { content: input.name } }]
+        };
+    }
+    if (input.requestedAmount !== undefined) {
+        properties['Requested $'] = {
+            type: 'number',
+            number: input.requestedAmount
+        };
+    }
+    if (input.chain) {
+        properties['Chain'] = {
+            type: 'select',
+            select: { name: input.chain }
+        };
+    }
+    if (input.origin) {
+        properties['Origin'] = {
+            type: 'select',
+            select: { name: input.origin }
+        };
+    }
+    if (input.timeline) {
+        properties['Timeline'] = {
+            type: 'status',
+            status: { name: input.timeline }
+        };
+    }
+    if (input.status) {
+        properties['Status'] = {
+            type: 'status',
+            status: { name: input.status }
+        };
+    }
+    return {
+        object: 'page',
+        parent: {
+            database_id: databaseId,
+            type: 'database_id'
+        },
+        properties
+    };
 }
