@@ -1,1 +1,613 @@
-{"object":"database","id":"117ca2a7-7d87-817a-b04f-ffee0f6c4ffd","cover":null,"icon":null,"created_time":"2024-10-06T18:45:00.000Z","created_by":{"object":"user","id":"f3b1ca33-b27e-46b6-8410-e6c714c5b26e"},"last_edited_by":{"object":"user","id":"13cd872b-594c-81a1-8633-0002b2091998"},"last_edited_time":"2025-01-30T19:47:00.000Z","title":[{"type":"text","text":{"content":"OpenGov_szavazások","link":null},"annotations":{"bold":false,"italic":false,"strikethrough":false,"underline":false,"code":false,"color":"default"},"plain_text":"OpenGov_szavazások","href":null}],"description":[],"is_inline":true,"properties":{"VIII. Revenue (1-5)":{"id":":ZM]","name":"VIII. Revenue (1-5)","type":"number","number":{"format":"number"}},"III. Competition (1-5)":{"id":":n=T","name":"III. Competition (1-5)","type":"number","number":{"format":"number"}},"Last edited by":{"id":"?jG@","name":"Last edited by","type":"last_edited_by","last_edited_by":{}},"We should vote":{"id":"A_Da","name":"We should vote","type":"select","select":{"options":[{"id":"xL_o","name":"👍 Aye 👍","color":"green","description":null},{"id":"YrPl","name":"✌️ Abstain ✌️","color":"yellow","description":null},{"id":"xZMd","name":"👎 Nay 👎","color":"red","description":null}]}},"VI. Reports (1-5)":{"id":"BP\\R","name":"VI. Reports (1-5)","type":"number","number":{"format":"number"}},"Requested $":{"id":"BmxC","name":"Requested $","type":"number","number":{"format":"dollar"}},"IV. Blueprint (1-5)":{"id":"CGRR","name":"IV. Blueprint (1-5)","type":"number","number":{"format":"number"}},"Timeline":{"id":"C]Mk","name":"Timeline","type":"status","status":{"options":[{"id":"00adbe3f-9809-4ed9-b64f-b64eb17c10d7","name":"Lead-in","color":"default","description":null},{"id":"]YWj","name":"Submitted","color":"blue","description":null},{"id":"90055d2f-5154-48b1-8b45-6d28d9a4fd93","name":"Deciding","color":"purple","description":null},{"id":"F<E=","name":"Confirmation","color":"yellow","description":null},{"id":"1d658b90-e9e7-4762-8d21-d51087202c93","name":"Enactment","color":"green","description":null},{"id":"_;jx","name":"TimedOut","color":"red","description":null},{"id":"IRlb","name":"Executed","color":"pink","description":null}],"groups":[{"id":"59c00920-5e9d-4fe8-af09-6000a5a43fb8","name":"To-do","color":"gray","option_ids":["00adbe3f-9809-4ed9-b64f-b64eb17c10d7"]},{"id":"d4152580-f57f-4d81-b4cf-c3bfe6ff4e75","name":"In progress","color":"blue","option_ids":["]YWj","90055d2f-5154-48b1-8b45-6d28d9a4fd93","F<E="]},{"id":"ff290a2d-eb4c-4ed0-b2a6-85f7e189540a","name":"Complete","color":"green","option_ids":["1d658b90-e9e7-4762-8d21-d51087202c93","IRlb","_;jx"]}]}},"Link":{"id":"MdFJ","name":"Link","type":"url","url":{}},"Status":{"id":"NT>\\","name":"Status","type":"status","status":{"options":[{"id":"e5d19bdd-57fb-4241-bb81-382786e4a1f7","name":"Not started","color":"default","description":null},{"id":"oVd{","name":"Considering","color":"yellow","description":null},{"id":"WXj\\","name":"Debating","color":"yellow","description":null},{"id":"e08dfed7-064a-4c52-b5f0-eae2e4b8f51e","name":"Waiting","color":"yellow","description":null},{"id":"fbf22ae6-4fe6-4334-8a32-d5e3fcbfc161","name":"Voted 👍 Aye 👍","color":"green","description":null},{"id":"AwZY","name":"Voted ✌️ Abstain ✌️","color":"orange","description":null},{"id":"NoMi","name":"Voted 👎 Nay 👎","color":"red","description":null},{"id":"yfhn","name":"Not Voted","color":"red","description":null}],"groups":[{"id":"8d771df6-9825-47c6-9b93-4ddc40673f15","name":"To-do","color":"gray","option_ids":["e5d19bdd-57fb-4241-bb81-382786e4a1f7"]},{"id":"ab8e3791-5cee-4055-9b7b-cf21b863d02f","name":"In progress","color":"blue","option_ids":["oVd{","WXj\\","e08dfed7-064a-4c52-b5f0-eae2e4b8f51e"]},{"id":"482baf64-07b8-4159-8320-7afe41fa2e49","name":"Complete","color":"green","option_ids":["fbf22ae6-4fe6-4334-8a32-d5e3fcbfc161","yfhn","AwZY","NoMi"]}]}},"Responsible Person":{"id":"OAh?","name":"Responsible Person","type":"people","people":{}},"Created time":{"id":"Ou>f","name":"Created time","type":"created_time","created_time":{}},"IX. Security (1-5)":{"id":"Uh_W","name":"IX. Security (1-5)","type":"number","number":{"format":"number"}},"Vote Executed":{"id":"UpaB","name":"Vote Executed","type":"date","date":{}},"Voting":{"id":"V<jS","name":"Voting","type":"date","date":{}},"I. Necessity (1-5)":{"id":"WhyO","name":"I. Necessity (1-5)","type":"number","number":{"format":"number"}},"II. Funding  (1-5)":{"id":"Yo@I","name":"II. Funding  (1-5)","type":"number","number":{"format":"number"}},"X. Open-Source (1-5)":{"id":"^:bN","name":"X. Open-Source (1-5)","type":"number","number":{"format":"number"}},"Origin":{"id":"_O\\T","name":"Origin","description":"","type":"select","select":{"options":[{"id":"LPru","name":"0 - Root","color":"red","description":null},{"id":"FNt]","name":"1 - Whitelisted Caller","color":"gray","description":null},{"id":"c@`x","name":"2 - Wish For Change","color":"blue","description":null},{"id":"zuIh","name":"10 - Staking Admin","color":"yellow","description":null},{"id":"R^eH","name":"11 - Treasurer","color":"purple","description":null},{"id":"cnZk","name":"12 - Lease Admin","color":"blue","description":null},{"id":"a\\NJ","name":"13 - Fellowship Admin","color":"blue","description":null},{"id":"JYzd","name":"14 - General Admin","color":"blue","description":null},{"id":"\\IGQ","name":"15 - Auction Admin","color":"yellow","description":null},{"id":"mk~P","name":"20 - Referendum Canceller","color":"pink","description":null},{"id":"ZznJ","name":"21 - Referendum Killer","color":"pink","description":null},{"id":"Q<wu","name":"30 - Small Tipper","color":"purple","description":null},{"id":"Zn\\p","name":"31 - Big Tipper","color":"purple","description":null},{"id":"ToxF","name":"32- Small Spender","color":"purple","description":null},{"id":";gTM","name":"33 - Medium Spender","color":"purple","description":null},{"id":"Yc~w","name":"34 - Big Spender","color":"purple","description":null},{"id":"d408af20-ba1c-426c-a186-6ad49957b4c7","name":"MediumSpender","color":"brown","description":null},{"id":"04979edd-9bba-476d-abeb-52f9fde40104","name":"BigTipper","color":"default","description":null},{"id":"73c25da1-1a10-472d-887f-c7ccd98d7153","name":"No origin information available","color":"green","description":null},{"id":"69b030b2-cb28-4b43-9a32-709f2bf3e25f","name":"BigSpender","color":"orange","description":null},{"id":"33339188-151d-4056-b123-b76d9ac03521","name":"ReferendumCanceller","color":"yellow","description":null},{"id":"f3fd4c1e-c2f6-4588-a5a2-0a4a281182b9","name":"SmallSpender","color":"pink","description":null},{"id":"397aa043-6e80-4c9a-a2ae-a9a692aee7ef","name":"WishForChange","color":"pink","description":null},{"id":"1df9c90c-40b0-49c8-83df-bf849a1c7b5e","name":"SmallTipper","color":"green","description":null},{"id":"2129af5d-cf28-4dd7-a3c6-ca103984274f","name":"FellowshipAdmin","color":"blue","description":null},{"id":"82bd4001-e821-4195-89b0-dc582a16ab21","name":"Root","color":"blue","description":null},{"id":"1dbf630b-3591-49bf-ae04-34162708478c","name":"WhitelistedCaller","color":"purple","description":null},{"id":"ab543970-2b72-43bb-93b0-945e0900f9dd","name":"Treasurer","color":"blue","description":null}]}},"AI Summary":{"id":"d;jt","name":"AI Summary","type":"rich_text","rich_text":{}},"VII. Synergy (1-5)":{"id":"dZ}R","name":"VII. Synergy (1-5)","type":"number","number":{"format":"number"}},"V. Track rec. (1-5)":{"id":"gq~F","name":"V. Track rec. (1-5)","type":"number","number":{"format":"number"}},"Last edited time":{"id":"i@R}","name":"Last edited time","type":"last_edited_time","last_edited_time":{}},"Reason for vote":{"id":"jjKg","name":"Reason for vote","type":"rich_text","rich_text":{}},"Ref score":{"id":"kKem","name":"Ref score","type":"formula","formula":{"expression":"round(mean({{notion:block_property:WhyO:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:Yo%40I:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:%3An%3DT:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:CGRR:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:gq~F:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:BP%5CR:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:dZ%7DR:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:%3AZM%5D:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:Uh_W:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:%5E%3AbN:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}})*100)/100"}},"Created by":{"id":"loh]","name":"Created by","type":"created_by","created_by":{}},"Number":{"id":"ob|z","name":"Number","type":"number","number":{"format":"number"}},"Chain":{"id":"u;i\\","name":"Chain","type":"select","select":{"options":[{"id":"GnDD","name":"Polkadot","color":"pink","description":null},{"id":"BWZo","name":"Kusama","color":"blue","description":null}]}},"Name":{"id":"title","name":"Name","type":"title","title":{}}},"parent":{"type":"page_id","page_id":"117ca2a7-7d87-81fc-bc45-de42ea61c66a"},"url":"https://www.notion.so/117ca2a77d87817ab04fffee0f6c4ffd","public_url":null,"archived":false,"in_trash":false,"request_id":"0d34d945-f22c-4cb0-8ff8-461e826324cb"}
+{
+  "object": "database",
+  "id": "117ca2a7-7d87-817a-b04f-ffee0f6c4ffd",
+  "cover": null,
+  "icon": null,
+  "created_time": "2024-10-06T18:45:00.000Z",
+  "created_by": {
+    "object": "user",
+    "id": "f3b1ca33-b27e-46b6-8410-e6c714c5b26e"
+  },
+  "last_edited_by": {
+    "object": "user",
+    "id": "13cd872b-594c-81a1-8633-0002b2091998"
+  },
+  "last_edited_time": "2025-01-30T19:47:00.000Z",
+  "title": [
+    {
+      "type": "text",
+      "text": {
+        "content": "OpenGov_szavazások",
+        "link": null
+      },
+      "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+      },
+      "plain_text": "OpenGov_szavazások",
+      "href": null
+    }
+  ],
+  "description": [],
+  "is_inline": true,
+  "properties": {
+    "VIII. Revenue (1-5)": {
+      "id": ":ZM]",
+      "name": "VIII. Revenue (1-5)",
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "III. Competition (1-5)": {
+      "id": ":n=T",
+      "name": "III. Competition (1-5)",
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "Last edited by": {
+      "id": "?jG@",
+      "name": "Last edited by",
+      "type": "last_edited_by",
+      "last_edited_by": {}
+    },
+    "We should vote": {
+      "id": "A_Da",
+      "name": "We should vote",
+      "type": "select",
+      "select": {
+        "options": [
+          {
+            "id": "xL_o",
+            "name": "👍 Aye 👍",
+            "color": "green",
+            "description": null
+          },
+          {
+            "id": "YrPl",
+            "name": "✌️ Abstain ✌️",
+            "color": "yellow",
+            "description": null
+          },
+          {
+            "id": "xZMd",
+            "name": "👎 Nay 👎",
+            "color": "red",
+            "description": null
+          }
+        ]
+      }
+    },
+    "VI. Reports (1-5)": {
+      "id": "BP\\R",
+      "name": "VI. Reports (1-5)",
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "Requested $": {
+      "id": "BmxC",
+      "name": "Requested $",
+      "type": "number",
+      "number": {
+        "format": "dollar"
+      }
+    },
+    "IV. Blueprint (1-5)": {
+      "id": "CGRR",
+      "name": "IV. Blueprint (1-5)",
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "Timeline": {
+      "id": "C]Mk",
+      "name": "Timeline",
+      "type": "status",
+      "status": {
+        "options": [
+          {
+            "id": "00adbe3f-9809-4ed9-b64f-b64eb17c10d7",
+            "name": "Lead-in",
+            "color": "default",
+            "description": null
+          },
+          {
+            "id": "]YWj",
+            "name": "Submitted",
+            "color": "blue",
+            "description": null
+          },
+          {
+            "id": "90055d2f-5154-48b1-8b45-6d28d9a4fd93",
+            "name": "Deciding",
+            "color": "purple",
+            "description": null
+          },
+          {
+            "id": "F<E=",
+            "name": "Confirmation",
+            "color": "yellow",
+            "description": null
+          },
+          {
+            "id": "1d658b90-e9e7-4762-8d21-d51087202c93",
+            "name": "Enactment",
+            "color": "green",
+            "description": null
+          },
+          {
+            "id": "_;jx",
+            "name": "TimedOut",
+            "color": "red",
+            "description": null
+          },
+          {
+            "id": "IRlb",
+            "name": "Executed",
+            "color": "pink",
+            "description": null
+          }
+        ],
+        "groups": [
+          {
+            "id": "59c00920-5e9d-4fe8-af09-6000a5a43fb8",
+            "name": "To-do",
+            "color": "gray",
+            "option_ids": [
+              "00adbe3f-9809-4ed9-b64f-b64eb17c10d7"
+            ]
+          },
+          {
+            "id": "d4152580-f57f-4d81-b4cf-c3bfe6ff4e75",
+            "name": "In progress",
+            "color": "blue",
+            "option_ids": [
+              "]YWj",
+              "90055d2f-5154-48b1-8b45-6d28d9a4fd93",
+              "F<E="
+            ]
+          },
+          {
+            "id": "ff290a2d-eb4c-4ed0-b2a6-85f7e189540a",
+            "name": "Complete",
+            "color": "green",
+            "option_ids": [
+              "1d658b90-e9e7-4762-8d21-d51087202c93",
+              "IRlb",
+              "_;jx"
+            ]
+          }
+        ]
+      }
+    },
+    "Link": {
+      "id": "MdFJ",
+      "name": "Link",
+      "type": "url",
+      "url": {}
+    },
+    "Status": {
+      "id": "NT>\\",
+      "name": "Status",
+      "type": "status",
+      "status": {
+        "options": [
+          {
+            "id": "e5d19bdd-57fb-4241-bb81-382786e4a1f7",
+            "name": "Not started",
+            "color": "default",
+            "description": null
+          },
+          {
+            "id": "oVd{",
+            "name": "Considering",
+            "color": "yellow",
+            "description": null
+          },
+          {
+            "id": "WXj\\",
+            "name": "Debating",
+            "color": "yellow",
+            "description": null
+          },
+          {
+            "id": "e08dfed7-064a-4c52-b5f0-eae2e4b8f51e",
+            "name": "Waiting",
+            "color": "yellow",
+            "description": null
+          },
+          {
+            "id": "fbf22ae6-4fe6-4334-8a32-d5e3fcbfc161",
+            "name": "Voted 👍 Aye 👍",
+            "color": "green",
+            "description": null
+          },
+          {
+            "id": "AwZY",
+            "name": "Voted ✌️ Abstain ✌️",
+            "color": "orange",
+            "description": null
+          },
+          {
+            "id": "NoMi",
+            "name": "Voted 👎 Nay 👎",
+            "color": "red",
+            "description": null
+          },
+          {
+            "id": "yfhn",
+            "name": "Not Voted",
+            "color": "red",
+            "description": null
+          }
+        ],
+        "groups": [
+          {
+            "id": "8d771df6-9825-47c6-9b93-4ddc40673f15",
+            "name": "To-do",
+            "color": "gray",
+            "option_ids": [
+              "e5d19bdd-57fb-4241-bb81-382786e4a1f7"
+            ]
+          },
+          {
+            "id": "ab8e3791-5cee-4055-9b7b-cf21b863d02f",
+            "name": "In progress",
+            "color": "blue",
+            "option_ids": [
+              "oVd{",
+              "WXj\\",
+              "e08dfed7-064a-4c52-b5f0-eae2e4b8f51e"
+            ]
+          },
+          {
+            "id": "482baf64-07b8-4159-8320-7afe41fa2e49",
+            "name": "Complete",
+            "color": "green",
+            "option_ids": [
+              "fbf22ae6-4fe6-4334-8a32-d5e3fcbfc161",
+              "yfhn",
+              "AwZY",
+              "NoMi"
+            ]
+          }
+        ]
+      }
+    },
+    "Responsible Person": {
+      "id": "OAh?",
+      "name": "Responsible Person",
+      "type": "people",
+      "people": {}
+    },
+    "Created time": {
+      "id": "Ou>f",
+      "name": "Created time",
+      "type": "created_time",
+      "created_time": {}
+    },
+    "IX. Security (1-5)": {
+      "id": "Uh_W",
+      "name": "IX. Security (1-5)",
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "Vote Executed": {
+      "id": "UpaB",
+      "name": "Vote Executed",
+      "type": "date",
+      "date": {}
+    },
+    "Voting": {
+      "id": "V<jS",
+      "name": "Voting",
+      "type": "date",
+      "date": {}
+    },
+    "I. Necessity (1-5)": {
+      "id": "WhyO",
+      "name": "I. Necessity (1-5)",
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "II. Funding  (1-5)": {
+      "id": "Yo@I",
+      "name": "II. Funding  (1-5)",
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "X. Open-Source (1-5)": {
+      "id": "^:bN",
+      "name": "X. Open-Source (1-5)",
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "Origin": {
+      "id": "_O\\T",
+      "name": "Origin",
+      "description": "",
+      "type": "select",
+      "select": {
+        "options": [
+          {
+            "id": "LPru",
+            "name": "0 - Root",
+            "color": "red",
+            "description": null
+          },
+          {
+            "id": "FNt]",
+            "name": "1 - Whitelisted Caller",
+            "color": "gray",
+            "description": null
+          },
+          {
+            "id": "c@`x",
+            "name": "2 - Wish For Change",
+            "color": "blue",
+            "description": null
+          },
+          {
+            "id": "zuIh",
+            "name": "10 - Staking Admin",
+            "color": "yellow",
+            "description": null
+          },
+          {
+            "id": "R^eH",
+            "name": "11 - Treasurer",
+            "color": "purple",
+            "description": null
+          },
+          {
+            "id": "cnZk",
+            "name": "12 - Lease Admin",
+            "color": "blue",
+            "description": null
+          },
+          {
+            "id": "a\\NJ",
+            "name": "13 - Fellowship Admin",
+            "color": "blue",
+            "description": null
+          },
+          {
+            "id": "JYzd",
+            "name": "14 - General Admin",
+            "color": "blue",
+            "description": null
+          },
+          {
+            "id": "\\IGQ",
+            "name": "15 - Auction Admin",
+            "color": "yellow",
+            "description": null
+          },
+          {
+            "id": "mk~P",
+            "name": "20 - Referendum Canceller",
+            "color": "pink",
+            "description": null
+          },
+          {
+            "id": "ZznJ",
+            "name": "21 - Referendum Killer",
+            "color": "pink",
+            "description": null
+          },
+          {
+            "id": "Q<wu",
+            "name": "30 - Small Tipper",
+            "color": "purple",
+            "description": null
+          },
+          {
+            "id": "Zn\\p",
+            "name": "31 - Big Tipper",
+            "color": "purple",
+            "description": null
+          },
+          {
+            "id": "ToxF",
+            "name": "32- Small Spender",
+            "color": "purple",
+            "description": null
+          },
+          {
+            "id": ";gTM",
+            "name": "33 - Medium Spender",
+            "color": "purple",
+            "description": null
+          },
+          {
+            "id": "Yc~w",
+            "name": "34 - Big Spender",
+            "color": "purple",
+            "description": null
+          },
+          {
+            "id": "d408af20-ba1c-426c-a186-6ad49957b4c7",
+            "name": "MediumSpender",
+            "color": "brown",
+            "description": null
+          },
+          {
+            "id": "04979edd-9bba-476d-abeb-52f9fde40104",
+            "name": "BigTipper",
+            "color": "default",
+            "description": null
+          },
+          {
+            "id": "73c25da1-1a10-472d-887f-c7ccd98d7153",
+            "name": "No origin information available",
+            "color": "green",
+            "description": null
+          },
+          {
+            "id": "69b030b2-cb28-4b43-9a32-709f2bf3e25f",
+            "name": "BigSpender",
+            "color": "orange",
+            "description": null
+          },
+          {
+            "id": "33339188-151d-4056-b123-b76d9ac03521",
+            "name": "ReferendumCanceller",
+            "color": "yellow",
+            "description": null
+          },
+          {
+            "id": "f3fd4c1e-c2f6-4588-a5a2-0a4a281182b9",
+            "name": "SmallSpender",
+            "color": "pink",
+            "description": null
+          },
+          {
+            "id": "397aa043-6e80-4c9a-a2ae-a9a692aee7ef",
+            "name": "WishForChange",
+            "color": "pink",
+            "description": null
+          },
+          {
+            "id": "1df9c90c-40b0-49c8-83df-bf849a1c7b5e",
+            "name": "SmallTipper",
+            "color": "green",
+            "description": null
+          },
+          {
+            "id": "2129af5d-cf28-4dd7-a3c6-ca103984274f",
+            "name": "FellowshipAdmin",
+            "color": "blue",
+            "description": null
+          },
+          {
+            "id": "82bd4001-e821-4195-89b0-dc582a16ab21",
+            "name": "Root",
+            "color": "blue",
+            "description": null
+          },
+          {
+            "id": "1dbf630b-3591-49bf-ae04-34162708478c",
+            "name": "WhitelistedCaller",
+            "color": "purple",
+            "description": null
+          },
+          {
+            "id": "ab543970-2b72-43bb-93b0-945e0900f9dd",
+            "name": "Treasurer",
+            "color": "blue",
+            "description": null
+          }
+        ]
+      }
+    },
+    "AI Summary": {
+      "id": "d;jt",
+      "name": "AI Summary",
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Chain": {
+      "id": "u;i\\",
+      "name": "Chain",
+      "type": "select",
+      "select": {
+        "options": [
+          {
+            "id": "GnDD",
+            "name": "Polkadot",
+            "color": "pink",
+            "description": null
+          },
+          {
+            "id": "BWZo",
+            "name": "Kusama",
+            "color": "blue",
+            "description": null
+          }
+        ]
+      }
+    },
+    "VII. Synergy (1-5)": {
+      "id": "dZ}R",
+      "name": "VII. Synergy (1-5)",
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "V. Track rec. (1-5)": {
+      "id": "gq~F",
+      "name": "V. Track rec. (1-5)",
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "Last edited time": {
+      "id": "i@R}",
+      "name": "Last edited time",
+      "type": "last_edited_time",
+      "last_edited_time": {}
+    },
+    "Reason for vote": {
+      "id": "jjKg",
+      "name": "Reason for vote",
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Ref score": {
+      "id": "kKem",
+      "name": "Ref score",
+      "type": "formula",
+      "formula": {
+        "expression": "round(mean({{notion:block_property:WhyO:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:Yo%40I:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:%3An%3DT:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:CGRR:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:gq~F:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:BP%5CR:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:dZ%7DR:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:%3AZM%5D:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:Uh_W:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}},{{notion:block_property:%5E%3AbN:00000000-0000-0000-0000-000000000000:cd3bc1b6-a3e3-42df-aa56-ea092c13d700}})*100)/100"
+      }
+    },
+    "Created by": {
+      "id": "loh]",
+      "name": "Created by",
+      "type": "created_by",
+      "created_by": {}
+    },
+    "Number": {
+      "id": "ob|z",
+      "name": "Number",
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "Name": {
+      "id": "title",
+      "name": "Name",
+      "type": "title",
+      "title": {}
+    }
+  },
+  "parent": {
+    "type": "page_id",
+    "page_id": "117ca2a7-7d87-81fc-bc45-de42ea61c66a"
+  },
+  "url": "https://www.notion.so/117ca2a77d87817ab04fffee0f6c4ffd",
+  "public_url": null,
+  "archived": false,
+  "in_trash": false,
+  "request_id": "f38a4a81-9a63-40b6-acb2-3823c48ee24f"
+}

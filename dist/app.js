@@ -18,7 +18,7 @@ const dotenv = require('dotenv');
 const update_1 = require("./api/update");
 const rss_1 = require("./api/rss");
 const create_1 = require("./api/create");
-const schema_1 = require("./schema");
+const properties_1 = require("./types/properties");
 dotenv.config();
 if (!process.env.REFRESH_INTERVAL)
     throw "Please specify REFRESH_INTERVAL in .env!";
@@ -31,10 +31,9 @@ app.get('/', (req, res) => {
 let startId = 1200;
 function refreshReferendas() {
     return __awaiter(this, void 0, void 0, function* () {
-        const schema = yield (0, schema_1.getDatabaseSchema)();
-        const create = (0, create_1.createReferenda)(process.env.NOTION_DATABASE_ID, "Hello from createReferenda!", 500);
-        //const referendas = await fetchDataFromAPI(startId, 1, 15);
-        //console.log(referendas);return;
+        const referendas = yield (0, update_1.fetchDataFromAPI)(startId, 1, 15);
+        console.log("Referendas from Polkassembly: ", referendas[0]);
+        const create = (0, create_1.createReferenda)(process.env.NOTION_DATABASE_ID, referendas[0], properties_1.Chain.Polkadot);
         return;
         const page = yield (0, update_1.findNotionPageByPostId)(1400);
         console.log("Referendas: ", referendas);

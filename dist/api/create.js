@@ -14,28 +14,33 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createReferenda = createReferenda;
 const axios_1 = __importDefault(require("axios"));
-const notion_1 = require("../types/notion");
+const utils_1 = require("../utils");
 const notionApiToken = process.env.NOTION_API_TOKEN;
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 /** Create a Referenda in the Notion database */
-function createReferenda(databaseId, title, amount) {
+function createReferenda(databaseId, referenda, network) {
     return __awaiter(this, void 0, void 0, function* () {
         const notionApiUrl = 'https://api.notion.com/v1/pages';
         if (!notionDatabaseId)
             throw "Please specify NOTION_DATABASE_ID in .env!";
+        // Fill the properties, that are coming from Polkassembly
         const properties = {
-            name: "Enums",
-            requestedAmount: 320,
-            chain: notion_1.Chain.Polkadot,
-            origin: notion_1.Origin.SmallSpender,
-            timeline: notion_1.TimelineStatus.Deciding,
-            status: notion_1.VoteStatus.Considering
+            name: referenda.title,
+            requestedAmount: 0,
+            chain: network,
+            origin: (0, utils_1.getValidatedOrigin)(referenda.origin),
+            timeline: (0, utils_1.getValidatedStatus)(referenda.status),
+            status: undefined,
+            link: `https://${network.toLowerCase()}.polkassembly.io/referenda/${referenda.post_id}`,
+            number: referenda.post_id
         };
+        // Prepare the data for Notion
         const data = prepareNotionData(databaseId, properties);
+        // Send request to Notion
         try {
             const response = yield axios_1.default.post(notionApiUrl, data, {
                 headers: {
-                    'Authorization': `Bearer ${process.env.NOTION_API_TOKEN}`,
+                    'Authorization': `Bearer ${notionApiToken}`,
                     'Content-Type': 'application/json',
                     'Notion-Version': process.env.NOTION_VERSION,
                 },
@@ -53,6 +58,12 @@ function prepareNotionData(databaseId, input) {
         properties['Name'] = {
             type: 'title',
             title: [{ text: { content: input.name } }]
+        };
+    }
+    if (input.number) {
+        properties['Number'] = {
+            type: 'number',
+            number: input.number
         };
     }
     if (input.requestedAmount !== undefined) {
@@ -83,6 +94,18 @@ function prepareNotionData(databaseId, input) {
         properties['Status'] = {
             type: 'status',
             status: { name: input.status }
+        };
+    }
+    if (input.voting) {
+        properties['Voting'] = {
+            type: 'date',
+            date: input.voting
+        };
+    }
+    if (input.link) {
+        properties['Link'] = {
+            type: 'url',
+            url: input.link
         };
     }
     return {

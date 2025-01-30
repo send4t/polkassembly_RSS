@@ -1,0 +1,58 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Origin = exports.VoteStatus = exports.TimelineStatus = exports.Chain = void 0;
+var Chain;
+(function (Chain) {
+    Chain["Polkadot"] = "Polkadot";
+    Chain["Kusama"] = "Kusama";
+})(Chain || (exports.Chain = Chain = {}));
+var TimelineStatus;
+(function (TimelineStatus) {
+    TimelineStatus["LeadIn"] = "Lead-in";
+    TimelineStatus["Submitted"] = "Submitted";
+    TimelineStatus["Deciding"] = "Deciding";
+    TimelineStatus["Confirmation"] = "Confirmation";
+    TimelineStatus["Enactment"] = "Enactment";
+    TimelineStatus["TimedOut"] = "TimedOut";
+    TimelineStatus["Executed"] = "Executed";
+})(TimelineStatus || (exports.TimelineStatus = TimelineStatus = {}));
+var VoteStatus;
+(function (VoteStatus) {
+    VoteStatus["NotStarted"] = "Not started";
+    VoteStatus["Considering"] = "Considering";
+    VoteStatus["Debating"] = "Debating";
+    VoteStatus["Waiting"] = "Waiting";
+    VoteStatus["VotedAye"] = "Voted \uD83D\uDC4D Aye \uD83D\uDC4D";
+    VoteStatus["VotedAbstain"] = "Voted \u270C\uFE0F Abstain \u270C\uFE0F";
+    VoteStatus["VotedNay"] = "Voted \uD83D\uDC4E Nay \uD83D\uDC4E";
+    VoteStatus["NotVoted"] = "Not Voted";
+})(VoteStatus || (exports.VoteStatus = VoteStatus = {}));
+var Origin;
+(function (Origin) {
+    Origin["Root0"] = "0 - Root";
+    Origin["WhitelistedCaller1"] = "1 - Whitelisted Caller";
+    Origin["WishForChange2"] = "2 - Wish For Change";
+    Origin["StakingAdmin10"] = "10 - Staking Admin";
+    Origin["Treasurer11"] = "11 - Treasurer";
+    Origin["LeaseAdmin12"] = "12 - Lease Admin";
+    Origin["FellowshipAdmin13"] = "13 - Fellowship Admin";
+    Origin["GeneralAdmin14"] = "14 - General Admin";
+    Origin["AuctionAdmin15"] = "15 - Auction Admin";
+    Origin["ReferendumCanceller20"] = "20 - Referendum Canceller";
+    Origin["ReferendumKiller21"] = "21 - Referendum Killer";
+    Origin["SmallTipper30"] = "30 - Small Tipper";
+    Origin["BigTipper31"] = "31 - Big Tipper";
+    Origin["SmallSpender32"] = "32 - Small Spender";
+    Origin["MediumSpender33"] = "33 - Medium Spender";
+    Origin["BigSpender34"] = "34 - Big Spender";
+    Origin["MediumSpender"] = "MediumSpender";
+    Origin["BigTipperAlt"] = "BigTipper";
+    Origin["NoOriginInformationAvailable"] = "No origin information available";
+    Origin["SmallSpenderAlt"] = "SmallSpender";
+    Origin["WishForChange"] = "WishForChange";
+    Origin["SmallTipper"] = "SmallTipper";
+    Origin["FellowshipAdmin"] = "FellowshipAdmin";
+    Origin["Root"] = "Root";
+    Origin["WhitelistedCaller"] = "WhitelistedCaller";
+    Origin["Treasurer"] = "Treasurer";
+})(Origin || (exports.Origin = Origin = {}));

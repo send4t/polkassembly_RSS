@@ -1,30 +1,37 @@
 import axios from 'axios';
-import { Chain, CreateReferendumInput, NotionCreatePageRequest, NotionDatabaseId, NotionProperties, Origin, TimelineStatus, VoteStatus } from '../types/notion';
+import { CreateReferendumInput, NotionCreatePageRequest, NotionDatabaseId, NotionProperties } from '../types/notion';
+import { Chain, Origin, TimelineStatus, VoteStatus } from '../types/properties';
+import { getValidatedOrigin, getValidatedStatus } from '../utils';
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 
+
 /** Create a Referenda in the Notion database */
-export async function createReferenda(databaseId: NotionDatabaseId, title: string, amount: number) {
+export async function createReferenda(databaseId: NotionDatabaseId, referenda: PolkassemblyReferenda, network: Chain) {
   const notionApiUrl = 'https://api.notion.com/v1/pages';
   if (!notionDatabaseId) throw "Please specify NOTION_DATABASE_ID in .env!";
 
+  // Fill the properties, that are coming from Polkassembly
   const properties: CreateReferendumInput = {
-    name: "Enums",
-    requestedAmount: 320,
-    chain: Chain.Polkadot,
-    origin: Origin.SmallSpender,
-    timeline: TimelineStatus.Deciding,
-    status: VoteStatus.Considering 
+    name: referenda.title,
+    requestedAmount: 0,
+    chain: network,
+    origin: getValidatedOrigin(referenda.origin),
+    timeline: getValidatedStatus(referenda.status),
+    status: undefined,
+    link: `https://${network.toLowerCase()}.polkassembly.io/referenda/${referenda.post_id}`,
+    number: referenda.post_id
   }
 
+  // Prepare the data for Notion
   const data = prepareNotionData(databaseId, properties);
-  
 
+  // Send request to Notion
   try {
     const response = await axios.post(notionApiUrl, data, {
       headers: {
-        'Authorization': `Bearer ${process.env.NOTION_API_TOKEN}`,
+        'Authorization': `Bearer ${notionApiToken}`,
         'Content-Type': 'application/json',
         'Notion-Version': process.env.NOTION_VERSION,
       },
@@ -48,6 +55,13 @@ function prepareNotionData(
         title: [{ text: { content: input.name } }]
       };
     }
+
+    if (input.number) {
+        properties['Number'] = {
+          type: 'number',
+          number: input.number
+        };
+      }
   
     if (input.requestedAmount !== undefined) {
       properties['Requested $'] = {
@@ -83,6 +97,21 @@ function prepareNotionData(
         status: { name: input.status }
       };
     }
+
+    if (input.voting) {
+      properties['Voting'] = {
+        type: 'date',
+        date: input.voting
+      };
+    }
+
+    if (input.link) {
+      properties['Link'] = {
+        type: 'url',
+        url: input.link
+      };
+    }
+  
   
     return {
       object: 'page',
