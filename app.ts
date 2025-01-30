@@ -5,6 +5,7 @@ const { fetchDataFromAPI, handleReferenda, createReferenda, findNotionPageByPost
 const { fetchDotToUsdRate } = require('./api/rss');
 
 dotenv.config();
+if (!process.env.REFRESH_INTERVAL) throw "Please specify REFRESH_INTERVAL in .env!";
 
 const app = express();
 
@@ -34,7 +35,7 @@ async function refreshReferendas() {
 }
 
 refreshReferendas();
-setInterval(refreshReferendas, process.env.REFRESH_INTERVAL * 1000);
+setInterval(refreshReferendas, Number(process.env.REFRESH_INTERVAL) * 1000);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
