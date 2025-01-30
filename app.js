@@ -1,7 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
-const { fetchDataFromAPI, handleReferenda } = require('./api/update');
+const { fetchDataFromAPI, handleReferenda, createReferenda, findNotionPageByPostId } = require('./api/update');
 const { fetchDotToUsdRate } = require('./api/rss');
 
 dotenv.config();
@@ -18,10 +18,13 @@ app.get('/', (req, res) => {
 let startId = 1200;
 
 async function refreshReferendas() {
-    const referendas = await fetchDataFromAPI(startId, 1);
+    const page = await findNotionPageByPostId(1400);
+    console.log("PAGE ", page)
+    const create = createReferenda(process.env.NOTION_DATABASE_ID, "Hello World", "$500")
+    return;    
+    const referendas = await fetchDataFromAPI(startId, 1, 15);
     console.log("Referendas: ", referendas);
     console.log("referenda count: ", referendas.length);
-    return;    
     const dotToUsdRate = await fetchDotToUsdRate();
 
     for (let i = 0; i < referendas.length; i++) {

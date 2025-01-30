@@ -68,7 +68,7 @@ async function updateReferenda(pageId, amount) {
   const data = {
     properties: {
         'Requested $': {
-            type: 'number',  // This was missing in your original code
+            type: 'number',
             number: amount
         },
     }
@@ -91,9 +91,45 @@ async function updateReferenda(pageId, amount) {
 }
 
 
-// Function to fetch data from Polkassembly API
-async function fetchDataFromAPI(startPostId, limit = 200) {
+/** Create a Referenda in the Notion database */
+async function createReferenda(databaseId, title, amount) {
+  const notionApiUrl = 'https://api.notion.com/v1/pages';
+
+  const data = {
+    parent: { database_id: databaseId },
+    properties: {
+      'Name': {
+        title: [{ text: { content: title } }]
+      },
+      'Requested $': {
+        type: 'number',
+        number: amount
+      },
+    }
+  };
+
   try {
+    const response = await axios.post(notionApiUrl, data, {
+      headers: {
+        'Authorization': `Bearer ${process.env.NOTION_API_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': process.env.NOTION_VERSION,
+      },
+    });
+
+    console.log('Page created successfully:', response.data);
+  } catch (error) {
+    console.error('Error creating page:', error.response ? error.response.data : error.message);
+  }
+}
+
+
+// Function to fetch data from Polkassembly API
+async function fetchDataFromAPI(startPostId, page = 1, limit = 200) {
+  try {
+    //const url = `https://polkadot.polkassembly.io/api/v1/posts/active-proposals-count`
+    //const url = `https://api.polkassembly.io/api/v1/latest-activity/on-chain-posts?proposalType=open_gov&listingLimit=20&trackNo=2`
+    //const url = `https://api.polkassembly.io/api/v1/listing/on-chain-posts?page=${page}&proposalType=referendums_v2&listingLimit=${limit}&trackNo=1&trackStatus=All&sortBy=newest`;
     const url = `https://api.polkassembly.io/api/v1/latest-activity/all-posts?govType=open_gov&listingLimit=${limit}`;
     const response = await axios.get(url, {
       headers: {
@@ -198,4 +234,4 @@ async function findNotionPageByPostId(postId) {
   }
 }
 
-module.exports = { main, fetchDataFromAPI, findNotionPageByPostId, handleReferenda };
+module.exports = { main, fetchDataFromAPI, findNotionPageByPostId, handleReferenda, createReferenda };
