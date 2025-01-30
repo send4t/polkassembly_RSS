@@ -30,10 +30,11 @@ app.get('/', (req, res) => {
 let startId = 1200;
 function refreshReferendas() {
     return __awaiter(this, void 0, void 0, function* () {
-        const create = (0, create_1.createReferenda)(process.env.NOTION_DATABASE_ID, "Hello World", 500);
+        const create = (0, create_1.createReferenda)(process.env.NOTION_DATABASE_ID, "Hello from createReferenda!", 500);
+        //const referendas = await fetchDataFromAPI(startId, 1, 15);
+        //console.log(referendas);return;
         return;
         const page = yield (0, update_1.findNotionPageByPostId)(1400);
-        const referendas = yield (0, update_1.fetchDataFromAPI)(startId, 1, 15);
         console.log("Referendas: ", referendas);
         console.log("referenda count: ", referendas.length);
         const dotToUsdRate = yield (0, rss_1.fetchDotToUsdRate)();

@@ -20,10 +20,11 @@ app.get('/', (req: Request, res: Response ) => {
 let startId = 1200;
 
 async function refreshReferendas() {
-    const create = createReferenda(process.env.NOTION_DATABASE_ID as any, "Hello World", 500)
+    const create = createReferenda(process.env.NOTION_DATABASE_ID as any, "Hello from createReferenda!", 500)
+    //const referendas = await fetchDataFromAPI(startId, 1, 15);
+    //console.log(referendas);return;
     return;    
     const page: ReferendaPage = await findNotionPageByPostId(1400);
-    const referendas = await fetchDataFromAPI(startId, 1, 15);
     console.log("Referendas: ", referendas);
     console.log("referenda count: ", referendas.length);
     const dotToUsdRate = await fetchDotToUsdRate();

@@ -20,17 +20,69 @@ const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 function createReferenda(databaseId, title, amount) {
     return __awaiter(this, void 0, void 0, function* () {
         const notionApiUrl = 'https://api.notion.com/v1/pages';
+        if (!notionDatabaseId)
+            throw "Please specify NOTION_DATABASE_ID in .env!";
         const data = {
-            parent: { database_id: databaseId },
+            object: "page",
+            parent: { database_id: notionDatabaseId, type: "database_id" },
             properties: {
                 'Name': {
+                    type: 'title',
                     title: [{ text: { content: title } }]
                 },
                 'Requested $': {
                     type: 'number',
-                    number: amount
+                    number: null
                 },
-            }
+                'Description': {
+                    type: 'rich_text',
+                    rich_text: [{ text: { content: "Hello World description" } }]
+                },
+                'Proposer': {
+                    type: 'rich_text',
+                    rich_text: [{ text: { content: "null" } }]
+                },
+                'Status': {
+                    type: 'select',
+                    select: { name: "null", id: undefined }
+                },
+                'Track Number': {
+                    type: 'number',
+                    number: null
+                },
+                'Hash': {
+                    type: 'rich_text',
+                    rich_text: [{ text: { content: "null" } }]
+                },
+                'Type': {
+                    type: 'select',
+                    select: { name: "null", id: undefined }
+                },
+                'Created At': {
+                    type: 'date',
+                    date: { start: new Date().toISOString() }
+                },
+                'Proposal Block': {
+                    type: 'rich_text',
+                    rich_text: [{ text: { content: "null" } }]
+                },
+                'Origin': {
+                    type: 'rich_text',
+                    rich_text: [{ text: { content: "null" } }]
+                },
+                'Spam Status': {
+                    type: 'checkbox',
+                    checkbox: false
+                },
+                'Spam Report Invalid': {
+                    type: 'checkbox',
+                    checkbox: false
+                },
+                'Spam Users Count': {
+                    type: 'number',
+                    number: null
+                }
+            },
         };
         try {
             const response = yield axios_1.default.post(notionApiUrl, data, {
