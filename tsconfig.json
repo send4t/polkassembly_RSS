@@ -10,5 +10,5 @@
     "allowJs": true,
     "outDir": "./dist"
   },
-  "include": [ "app.ts", "./api/**/*" ]
+  "include": [ "src/**/*" ]
 }
