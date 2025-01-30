@@ -18,6 +18,7 @@ const dotenv = require('dotenv');
 const update_1 = require("./api/update");
 const rss_1 = require("./api/rss");
 const create_1 = require("./api/create");
+const schema_1 = require("./schema");
 dotenv.config();
 if (!process.env.REFRESH_INTERVAL)
     throw "Please specify REFRESH_INTERVAL in .env!";
@@ -30,6 +31,7 @@ app.get('/', (req, res) => {
 let startId = 1200;
 function refreshReferendas() {
     return __awaiter(this, void 0, void 0, function* () {
+        const schema = yield (0, schema_1.getDatabaseSchema)();
         const create = (0, create_1.createReferenda)(process.env.NOTION_DATABASE_ID, "Hello from createReferenda!", 500);
         //const referendas = await fetchDataFromAPI(startId, 1, 15);
         //console.log(referendas);return;

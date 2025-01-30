@@ -8,7 +8,7 @@ export async function createReferenda(databaseId: NotionDatabaseId, title: strin
   const notionApiUrl = 'https://api.notion.com/v1/pages';
   if (!notionDatabaseId) throw "Please specify NOTION_DATABASE_ID in .env!";
 
-  const data: ReferendaPage = {
+  const data: NotionReferendaCreate = {
     object: "page",
     parent: { database_id: notionDatabaseId, type: "database_id" },
     properties: {
@@ -20,7 +20,7 @@ export async function createReferenda(databaseId: NotionDatabaseId, title: strin
         type: 'number',
         number: null
       },
-      'Description': {
+      /*'Description': {
         type: 'rich_text',
         rich_text: [{ text: { content: "Hello World description" } }]
       },
@@ -67,7 +67,11 @@ export async function createReferenda(databaseId: NotionDatabaseId, title: strin
       'Spam Users Count': {
         type: 'number',
         number: null
-      }
+      }*/
+     'Chain': {
+        type: 'select',
+        select: { name: "Polkadot"}
+     }
     },
   };
   
