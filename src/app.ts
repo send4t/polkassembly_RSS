@@ -1,4 +1,4 @@
-const express = require('express');
+import express, { Request, Response } from 'express'
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const { fetchDataFromAPI, handleReferenda, createReferenda, findNotionPageByPostId } = require('./api/update');
@@ -12,17 +12,20 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.get('/', (req, res) => {
+app.get('/', (req: Request, res: Response ) => {
     res.send('Hello, world! The app is running.');
 });
 
 let startId = 1200;
 
 async function refreshReferendas() {
-    const page = await findNotionPageByPostId(1400);
+    const page: ReferendaPage = await findNotionPageByPostId(1400);
     console.log("PAGE ", page)
-    const create = createReferenda(process.env.NOTION_DATABASE_ID, "Hello World", "$500")
+    console.log(page.archived)
+    console.log(page.cover)
+    console.log(page.properties)
     return;    
+    const create = createReferenda(process.env.NOTION_DATABASE_ID, "Hello World", "$500")
     const referendas = await fetchDataFromAPI(startId, 1, 15);
     console.log("Referendas: ", referendas);
     console.log("referenda count: ", referendas.length);
