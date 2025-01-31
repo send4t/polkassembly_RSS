@@ -1,3 +1,5 @@
+import { Chain } from "./properties";
+
 export enum PostType {
     ReferendumV2 = "ReferendumV2",
     Discussions = "Discussions"
@@ -23,6 +25,7 @@ export interface PolkassemblyReferenda {
     topic?: { id: number; name: string }; // Only for "Discussions"
     user_id?: number; // Only for "Discussions"
     username?: string; // Only for "Discussions"
+    network: Chain;
 }
 
 export interface FetchReferendaReturnType {

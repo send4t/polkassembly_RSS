@@ -5,23 +5,12 @@ const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 
 
 /** Function to query Notion database for a matching "URL" (post_id from URL) */ 
-export async function findNotionPageByPostId(postId: number) {
+export async function findNotionPageByPostId(pageList: any[], postId: number) {
     try {
       const postIdString = postId.toString();
-  
-      const response = await axios.post(
-        `https://api.notion.com/v1/databases/${notionDatabaseId}/query`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${notionApiToken}`,
-            "Notion-Version": "2022-06-28",
-          },
-        }
-      );
-  
-      if (response.data.results) {
-        for (const page of response.data.results) {
+
+      if (pageList) {
+        for (const page of pageList) {
           const urlProperty = page.properties.Link?.url || "";
           const match = urlProperty.match(/(\d+)$/);
           if (match && match[1] === postIdString) {
@@ -29,9 +18,32 @@ export async function findNotionPageByPostId(postId: number) {
           }
         }
       }
+
       return null;
+
     } catch (error) {
       console.error("Error querying Notion database:", (error as any).message);
       return null;
+    }
+}
+
+export async function getNotionPages(): Promise<any> {
+    try {
+        const response = await axios.post(
+            `https://api.notion.com/v1/databases/${notionDatabaseId}/query`,
+            {},
+            {
+              headers: {
+                Authorization: `Bearer ${notionApiToken}`,
+                "Notion-Version": "2022-06-28",
+              },
+            }
+        );
+
+        return response.data.results;
+
+    } catch (error) {
+        console.error("Error querying Notion database:", (error as any).message);
+        throw new Error("Could not query Notion database")
     }
 }

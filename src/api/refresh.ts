@@ -1,33 +1,39 @@
 import { Chain } from "../types/properties";
 import { createReferenda } from "./create";
 import { fetchDataFromAPI } from "./fetchReferendas";
-import { fetchDotToUsdRate } from "./rss";
-import { handleReferenda } from "./update";
+import { findNotionPageByPostId, getNotionPages } from "./findNotionPage";
+
+const notionApiToken = process.env.NOTION_API_TOKEN;
+const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 
 
 export async function refreshReferendas() {
-    // Fetch latest proposals from both networks
-    const polkadotPosts = await fetchDataFromAPI(30, Chain.Polkadot);
-    const kusamaPosts = await fetchDataFromAPI(30, Chain.Kusama);
+    try {
+        if (!notionDatabaseId) throw "Please specify REFRESH_INTERVAL in .env!";
 
-    // Combine them into one array
-    const referendas = [...polkadotPosts.referendas, ...kusamaPosts.referendas];
+        // Fetch latest proposals from both networks
+        const polkadotPosts = await fetchDataFromAPI(30, Chain.Polkadot);
+        const kusamaPosts = await fetchDataFromAPI(30, Chain.Kusama);
+        const pages = await getNotionPages();
 
-    console.log("The Referendas: ", referendas);
+        // Combine them into one array
+        const referendas = [...polkadotPosts.referendas, ...kusamaPosts.referendas];
 
-    return;
+        // Go through the fetched referendas
+        for (const referenda of referendas) {
+            // If Referenda exist in Notion, update it, otherwise, create new page
+            const found = await findNotionPageByPostId(pages, referenda.post_id);
 
-    const create = createReferenda(process.env.NOTION_DATABASE_ID as any, referendas[1], Chain.Polkadot)
-    
-    return;
-
-
-    console.log("Referendas: ", referendas);
-    console.log("referenda count: ", referendas.length);
-    const dotToUsdRate = await fetchDotToUsdRate();
-
-    for (let i = 0; i < referendas.length; i++) {
-        //console.log("Referenda: ", referendas[i]);
-        await handleReferenda(referendas[i], dotToUsdRate);
+            if (found) {
+                console.log(`Proposal ${referenda.post_id} found in Notion.`);
+                // UPDATE
+            } else {
+                console.log(`This proposal is not in Notion. ${referenda.post_id}`);
+                console.log(referenda.status)
+                await createReferenda(notionDatabaseId, referenda, referenda.network);
+            }
+        }
+    } catch (error) {
+        console.error("Error while refreshing Referendas: ", (error as any).message);
     }
 }

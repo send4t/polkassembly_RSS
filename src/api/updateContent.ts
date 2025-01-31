@@ -47,7 +47,7 @@ export async function updateContent(pageId: string, content: string) {
             },
         });
 
-        console.log("Description updated successfully:", response.data);
+        console.log(`Description updated successfully for proposal ${pageId}`);
     } catch (error) {
         console.error(
             "Error updating content:",

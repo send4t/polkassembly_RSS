@@ -1,4 +1,4 @@
-import { Origin, TimelineStatus, VoteStatus } from "../types/properties";
+import { Origin, TimelineStatus } from "../types/properties";
 
 export function getValidatedOrigin(origin: string | undefined): Origin {
     if (!origin) return  Origin.NoOriginInformationAvailable;

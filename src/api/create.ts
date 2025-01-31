@@ -41,7 +41,7 @@ export async function createReferenda(databaseId: NotionDatabaseId, referenda: P
     });
 
     // Add content to the newly created page
-    const contentResp = await fetchReferendumContent(referenda.post_id); console.log("CONTENT: ", contentResp.content)
+    const contentResp = await fetchReferendumContent(referenda.post_id);
     await updateContent(response.data.id, contentResp.content);
 
     console.log('Page created successfully:', response.data);
@@ -119,7 +119,7 @@ function prepareNotionData(
       };
     }
   
-  
+  console.log("PARENT: ", databaseId)
     return {
       object: 'page',
       parent: {

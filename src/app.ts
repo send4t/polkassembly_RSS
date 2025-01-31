@@ -1,10 +1,10 @@
 import express, { Request, Response } from 'express'
 import bodyParser from 'body-parser';
-import dotenv from 'dotenv';
-import { refreshReferendas } from './api/refresh';
-
+const dotenv = require('dotenv');
 dotenv.config();
 if (!process.env.REFRESH_INTERVAL) throw "Please specify REFRESH_INTERVAL in .env!";
+import { refreshReferendas } from './api/refresh';
+
 
 const app = express();
 
@@ -15,7 +15,6 @@ app.get('/', (req: Request, res: Response ) => {
     res.send('Hello, world! The app is running.');
 });
 
-// Periodically refresh referendas
 refreshReferendas();
 setInterval(refreshReferendas, Number(process.env.REFRESH_INTERVAL) * 1000);
 

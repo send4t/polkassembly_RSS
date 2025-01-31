@@ -10,7 +10,8 @@ export enum TimelineStatus {
     Confirmation = "Confirmation",
     Enactment = "Enactment",
     TimedOut = "TimedOut",
-    Executed = "Executed"
+    Executed = "Executed",
+    ConfirmStarted = "ConfirmStarted"
 }
 
 export enum VoteStatus {
@@ -25,6 +26,7 @@ export enum VoteStatus {
 }
 
 export enum Origin {
+    // Numbered origins
     Root0 = "0 - Root",
     WhitelistedCaller1 = "1 - Whitelisted Caller",
     WishForChange2 = "2 - Wish For Change",
@@ -38,21 +40,24 @@ export enum Origin {
     ReferendumKiller21 = "21 - Referendum Killer",
     SmallTipper30 = "30 - Small Tipper",
     BigTipper31 = "31 - Big Tipper",
-    SmallSpender32 = "32 - Small Spender",
+    SmallSpender32 = "32- Small Spender", // Note: Original has a missing space after the hyphen
     MediumSpender33 = "33 - Medium Spender",
     BigSpender34 = "34 - Big Spender",
     
+    // Alternative names without numbers
     MediumSpender = "MediumSpender",
-    BigTipperAlt = "BigTipper",
+    BigTipper = "BigTipper",
     NoOriginInformationAvailable = "No origin information available",
-    SmallSpenderAlt = "SmallSpender",
+    BigSpender = "BigSpender", // Added
+    ReferendumCanceller = "ReferendumCanceller", // Added
+    SmallSpender = "SmallSpender",
     WishForChange = "WishForChange",
     SmallTipper = "SmallTipper",
     FellowshipAdmin = "FellowshipAdmin",
     Root = "Root",
     WhitelistedCaller = "WhitelistedCaller",
     Treasurer = "Treasurer"
-  }
+}
 
 
 export type Link = string;

@@ -21,6 +21,7 @@ export async function fetchDataFromAPI(limit: number = 200, network: Chain): Pro
 
     // Separate Discussions from Referendas (on-chain)
     for (const post of posts) {
+        post.network = network;
         if (post.type === PostType.ReferendumV2) {
             referendas.push(post);
         }
