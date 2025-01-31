@@ -90,26 +90,6 @@ async function updateReferenda(pageId, amount) {
   }
 }
 
-
-// Function to fetch data from Polkassembly API
-async function fetchDataFromAPI(startPostId, page = 1, limit = 200) {
-  try {
-    //const url = `https://polkadot.polkassembly.io/api/v1/posts/active-proposals-count`
-    //const url = `https://api.polkassembly.io/api/v1/latest-activity/on-chain-posts?proposalType=open_gov&listingLimit=20&trackNo=2`
-    //const url = `https://api.polkassembly.io/api/v1/listing/on-chain-posts?page=${page}&proposalType=referendums_v2&listingLimit=${limit}&trackNo=1&trackStatus=All&sortBy=newest`;
-    const url = `https://api.polkassembly.io/api/v1/latest-activity/all-posts?govType=open_gov&listingLimit=${limit}`;
-    const response = await axios.get(url, {
-      headers: {
-        "x-network": "polkadot",
-      },
-    });
-    return response.data.posts || [];
-  } catch (error) {
-    console.error("Error fetching data from Polkassembly API:", error.message);
-    return [];
-  }
-}
-
 // Function to update 'Referendum timeline' field in Notion page
 async function updateNotionTimeline(pageId, timelineStatus) {
   try {
@@ -169,36 +149,4 @@ async function main(lastProcessedPostId) {
   return lastPostId; // Return the last processed post ID for the next batch
 }
 
-// Function to query Notion database for a matching "URL" (post_id from URL)
-async function findNotionPageByPostId(postId) {
-  try {
-    const postIdString = postId.toString();
-
-    const response = await axios.post(
-      `https://api.notion.com/v1/databases/${notionDatabaseId}/query`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${notionApiToken}`,
-          "Notion-Version": "2022-06-28",
-        },
-      }
-    );
-
-    if (response.data.results) {
-      for (const page of response.data.results) {
-        const urlProperty = page.properties.Link?.url || "";
-        const match = urlProperty.match(/(\d+)$/);
-        if (match && match[1] === postIdString) {
-          return page;
-        }
-      }
-    }
-    return null;
-  } catch (error) {
-    console.error("Error querying Notion database:", error.message);
-    return null;
-  }
-}
-
-module.exports = { main, fetchDataFromAPI, findNotionPageByPostId, handleReferenda };
+module.exports = { main, handleReferenda };

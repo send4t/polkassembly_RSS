@@ -80,32 +80,6 @@ async function fetchReferendums() {
     }
 }
 
-// Fetch content of a specific referendum post by ID
-async function fetchReferendumContent(postId) {
-    try {
-        const response = await axios.get('https://api.polkassembly.io/api/v1/posts/on-chain-post', {
-            params: {
-              postId: postId,
-              proposalType: 'referendums_v2',
-            },
-            headers: {
-              'x-network': 'polkadot',
-              'Content-Type': 'application/json',
-            },
-          });
-
-        if (response.status !== 200) {
-            throw new Error(`Error fetching post content: ${response.status} ${response.statusText}`);
-        }
-
-        return response.data;
-
-    } catch (error) {
-        console.error('Error fetching referendum content:', error.message);
-        return { content: 'No content available' };
-    }
-}
-
 // Fetch DOT/USD exchange rate
 async function fetchDotToUsdRate() {
     try {
@@ -211,4 +185,4 @@ function escapeXML(str) {
               .replace(/'/g, '&apos;');
 }
 
-module.exports = { fetchReferendums, fetchReferendumContent, fetchDotToUsdRate, extractReward };
+module.exports = { fetchReferendums, fetchDotToUsdRate, extractReward };

@@ -1,4 +1,9 @@
-interface PolkassemblyReferenda {
+export enum PostType {
+    ReferendumV2 = "ReferendumV2",
+    Discussions = "Discussions"
+};
+
+export interface PolkassemblyReferenda {
     created_at: string;
     description?: string;
     hash?: string;
@@ -11,11 +16,16 @@ interface PolkassemblyReferenda {
     status?: string;
     title: string;
     track_number?: number;
-    type: "ReferendumV2" | "Discussions" | string;
+    type: PostType;
     is_spam: boolean;
     is_spam_report_invalid: boolean;
     spam_users_count: number;
     topic?: { id: number; name: string }; // Only for "Discussions"
     user_id?: number; // Only for "Discussions"
     username?: string; // Only for "Discussions"
+}
+
+export interface FetchReferendaReturnType {
+    referendas: PolkassemblyReferenda[];
+    discussions: PolkassemblyReferenda[];
 }

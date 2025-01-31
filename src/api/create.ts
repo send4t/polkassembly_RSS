@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { CreateReferendumInput, NotionCreatePageRequest, NotionDatabaseId, NotionProperties } from '../types/notion';
-import { Chain, Origin, TimelineStatus, VoteStatus } from '../types/properties';
-import { getValidatedOrigin, getValidatedStatus } from '../utils';
+import { Chain } from '../types/properties';
+import { getValidatedOrigin, getValidatedStatus } from '../utils/utils';
+import { PolkassemblyReferenda } from '../types/polkassemly';
+import { updateContent } from './updateContent';
+import { fetchReferendumContent } from './fetchReferendas';
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
@@ -36,6 +39,10 @@ export async function createReferenda(databaseId: NotionDatabaseId, referenda: P
         'Notion-Version': process.env.NOTION_VERSION,
       },
     });
+
+    // Add content to the newly created page
+    const contentResp = await fetchReferendumContent(referenda.post_id); console.log("CONTENT: ", contentResp.content)
+    await updateContent(response.data.id, contentResp.content);
 
     console.log('Page created successfully:', response.data);
   } catch (error) {

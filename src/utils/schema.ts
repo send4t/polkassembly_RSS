@@ -1,4 +1,3 @@
-import axios from 'axios';
 import fs from 'fs';
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
