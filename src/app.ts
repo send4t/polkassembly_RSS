@@ -3,7 +3,7 @@ import bodyParser from 'body-parser';
 const dotenv = require('dotenv');
 dotenv.config();
 if (!process.env.REFRESH_INTERVAL) throw "Please specify REFRESH_INTERVAL in .env!";
-import { refreshReferendas } from './api/refresh';
+import { refreshReferendas } from './refresh';
 
 
 const app = express();

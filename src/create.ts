@@ -1,8 +1,8 @@
 import axios from 'axios';
-import { CreateReferendumInput, NotionCreatePageRequest, NotionDatabaseId, NotionProperties } from '../types/notion';
-import { Chain } from '../types/properties';
-import { calculateReward, getValidatedOrigin, getValidatedStatus } from '../utils/utils';
-import { PolkassemblyReferenda } from '../types/polkassemly';
+import { CreateReferendumInput, NotionCreatePageRequest, NotionDatabaseId, NotionProperties } from './types/notion';
+import { Chain } from './types/properties';
+import { calculateReward, getValidatedOrigin, getValidatedStatus } from './utils/utils';
+import { PolkassemblyReferenda } from './types/polkassemly';
 import { updateContent } from './updateContent';
 import { fetchReferendumContent } from './fetchReferendas';
 

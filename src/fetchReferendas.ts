@@ -1,6 +1,6 @@
 import axios from "axios";
-import { FetchReferendaReturnType, PolkassemblyReferenda, PostType } from "../types/polkassemly";
-import { Chain } from "../types/properties";
+import { FetchReferendaReturnType, PolkassemblyReferenda, PostType } from "./types/polkassemly";
+import { Chain } from "./types/properties";
 
 
 /** Function to fetch data from Polkassembly API */
