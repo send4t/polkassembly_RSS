@@ -20,10 +20,14 @@ export async function createReferenda(
   const notionApiUrl = 'https://api.notion.com/v1/pages';
   if (!notionDatabaseId) throw "Please specify NOTION_DATABASE_ID in .env!";
 
+  // Fetch content (description) and reward information
+  const contentResp = await fetchReferendumContent(referenda.post_id, referenda.network);
+  const rewardString = calculateReward(contentResp, exchangeRate, network);
+
   // Fill the properties, that are coming from Polkassembly
   const properties: CreateReferendumInput = {
     name: referenda.title,
-    requestedAmount: 0,
+    requestedAmount: rewardString,
     chain: network,
     origin: getValidatedOrigin(referenda.origin),
     timeline: getValidatedStatus(referenda.status),
@@ -44,12 +48,8 @@ export async function createReferenda(
         'Notion-Version': process.env.NOTION_VERSION,
       },
     });
-
+    
     // Add content to the newly created page
-    const contentResp = await fetchReferendumContent(referenda.post_id, referenda.network);
-
-    calculateReward(contentResp, exchangeRate, network);
-return
     await updateContent(response.data.id, contentResp.content);
 
     console.log('Page created successfully:', response.data);

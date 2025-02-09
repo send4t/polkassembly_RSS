@@ -46,14 +46,15 @@ export async function fetchKusToUsdRate(): Promise<number> {
 }
 
 /** Calculate requested amount (in $) */ 
-export function calculateReward(content: any, rate: number,  network: Chain) {
-    
+export function calculateReward(content: any, rate: number,  network: Chain): number {
+
     if (content.beneficiaries && content.beneficiaries.length > 0) {
         const beneficiary = content.beneficiaries[0];
         if (content.assetId === '1984' || content.assetId === '1337') {
-            const usdtAmount = (BigInt(beneficiary.amount) / BigInt(1e6)).toString();
+            const usdtAmount = Number((BigInt(beneficiary.amount) / BigInt(1e6)).toString());
 
-            return `${usdtAmount} ${assetIdToTicker(content.assetId)}`;
+            console.log(`${usdtAmount} ${assetIdToTicker(content.assetId)}`);
+            return usdtAmount;
         }
     }
     
@@ -64,12 +65,14 @@ export function calculateReward(content: any, rate: number,  network: Chain) {
 
         const scaledRate = Math.round(rate * 100);
         const usdAmount = (nativeAmount * BigInt(scaledRate)) / BigInt(100);
-        const usdValue = Number(usdAmount).toFixed(2);
+        const usdValue = Number(usdAmount)//.toFixed(2);
 
-        return `$${usdValue} USD`;
+        console.log(`$${usdValue} USD`);
+        return usdValue;
     }
     
-    return 'No reward information available';
+    console.log('No reward information available');
+    return 0;
 }
 
 function assetIdToTicker(assetId: string): string {
