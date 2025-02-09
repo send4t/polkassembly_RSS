@@ -16,7 +16,7 @@ export async function updateContent(pageId: string, content: string) {
             },
         });
 
-        const existingBlocks = existingBlocksResponse.data.results;
+        const existingBlocks: { id: string; type: string }[] = existingBlocksResponse.data.results;
 
         // Delete existing paragraph blocks
         const deletePromises = existingBlocks
@@ -39,7 +39,7 @@ export async function updateContent(pageId: string, content: string) {
         }
 
         // Add new blocks
-        const response = await axios.patch(notionApiUrl, { children: newDescriptionBlocks }, {
+        await axios.patch(notionApiUrl, { children: newDescriptionBlocks }, {
             headers: {
                 Authorization: `Bearer ${notionApiToken}`,
                 "Content-Type": "application/json",

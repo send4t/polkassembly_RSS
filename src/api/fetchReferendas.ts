@@ -3,7 +3,7 @@ import { FetchReferendaReturnType, PolkassemblyReferenda, PostType } from "../ty
 import { Chain } from "../types/properties";
 
 
-/** Function to fetch data from Polkassembly API */ 
+/** Function to fetch data from Polkassembly API */
 export async function fetchDataFromAPI(limit: number = 200, network: Chain): Promise<FetchReferendaReturnType> {
   try {
     let referendas = [];

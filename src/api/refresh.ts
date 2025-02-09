@@ -13,15 +13,14 @@ export async function refreshReferendas() {
     try {
         if (!notionDatabaseId) throw "Please specify REFRESH_INTERVAL in .env!";
 
-        // Fetch latest proposals from both networks
-        const polkadotPosts = await fetchDataFromAPI(30, Chain.Polkadot);
-        const kusamaPosts = await fetchDataFromAPI(30, Chain.Kusama);
-        const pages = await getNotionPages();
-        const dotUsdRate = await fetchDotToUsdRate();
-        const kusUsdRate = await fetchKusToUsdRate();
-        console.log("Kusama: ", kusUsdRate)
-
-        //Promise.all()
+        // Fetch latest proposals from both networks, get list of Notion pages and fetch exchange rates
+        const [polkadotPosts, kusamaPosts, pages, dotUsdRate, kusUsdRate] = await Promise.all([
+            fetchDataFromAPI(30, Chain.Polkadot),
+            fetchDataFromAPI(30, Chain.Kusama),
+            getNotionPages(),
+            fetchDotToUsdRate(),
+            fetchKusToUsdRate()
+        ]);
 
         // Combine them into one array
         const referendas = [...polkadotPosts.referendas, ...kusamaPosts.referendas];
@@ -36,7 +35,6 @@ export async function refreshReferendas() {
                 console.log(`Proposal ${referenda.post_id} found in Notion.`);
                 try {
                     // UPDATE
-                      await createReferenda(notionDatabaseId, referenda, exchangeRate, referenda.network);
                 } catch (error) {
                     console.error("Error updating referenda: ", (error as any).message);
                 }
