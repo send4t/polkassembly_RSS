@@ -7,7 +7,6 @@ import { updateContent } from './updateContent';
 import { fetchReferendumContent } from '../fetchReferendas';
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
-const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 
 
 /** Create a Referenda in the Notion database */
@@ -18,7 +17,6 @@ export async function createReferenda(
   network: Chain
 ) {
   const notionApiUrl = 'https://api.notion.com/v1/pages';
-  if (!notionDatabaseId) throw "Please specify NOTION_DATABASE_ID in .env!";
 
   // Fetch content (description) and reward information
   const contentResp = await fetchReferendumContent(referenda.post_id, referenda.network);

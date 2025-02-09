@@ -1,7 +1,7 @@
 import { Chain } from "./types/properties";
 import { createReferenda } from "./notion/create";
 import { fetchDataFromAPI } from "./fetchReferendas";
-import { findNotionPageByPostId, getNotionPages } from "./findNotionPage";
+import { findNotionPageByPostId, getNotionPages } from "./notion/findNotionPage";
 import { fetchDotToUsdRate, fetchKusToUsdRate } from "./utils/utils";
 
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
