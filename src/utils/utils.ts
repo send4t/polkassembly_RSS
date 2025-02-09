@@ -1,4 +1,4 @@
-import { Origin, TimelineStatus } from "../types/properties";
+import { Chain, Origin, TimelineStatus } from "../types/properties";
 
 export function getValidatedOrigin(origin: string | undefined): Origin {
     if (!origin) return  Origin.NoOriginInformationAvailable;
@@ -19,4 +19,62 @@ export function getValidatedStatus(status: string | undefined): TimelineStatus {
     }
 
     throw new Error(`Invalid vote status: ${status}`);
+}
+
+/** Fetch DOT/USD exchange rate */
+export async function fetchDotToUsdRate(): Promise<number> {
+    try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=polkadot&vs_currencies=usd');
+        const data = await response.json();
+        return data.polkadot.usd || 0;
+    } catch (error) {
+        console.error('Error fetching DOT/USD rate:', (error as any).message);
+        throw error;
+    }
+}
+
+/** Fetch KUS/USD exchange rate */
+export async function fetchKusToUsdRate(): Promise<number> {
+    try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=kusama&vs_currencies=usd');
+        const data = await response.json();
+        return data.kusama.usd || 0;
+    } catch (error) {
+        console.error('Error fetching KUS/USD rate:', (error as any).message);
+        throw error;
+    }
+}
+
+/** Calculate requested amount (in $) */ 
+export function calculateReward(content: any, rate: number,  network: Chain) {
+    
+    if (content.beneficiaries && content.beneficiaries.length > 0) {
+        const beneficiary = content.beneficiaries[0];
+        if (content.assetId === '1984' || content.assetId === '1337') {
+            const usdtAmount = (BigInt(beneficiary.amount) / BigInt(1e6)).toString();
+
+            return `${usdtAmount} ${assetIdToTicker(content.assetId)}`;
+        }
+    }
+    
+    if (content.proposer && content.requested) {
+        let nativeAmount = BigInt(0);
+        if (network === Chain.Polkadot) nativeAmount = BigInt(content.requested) / BigInt(1e10);
+        if (network === Chain.Kusama) nativeAmount = BigInt(content.requested) / BigInt(1e12);
+
+        const scaledRate = Math.round(rate * 100);
+        const usdAmount = (nativeAmount * BigInt(scaledRate)) / BigInt(100);
+        const usdValue = Number(usdAmount).toFixed(2);
+
+        return `$${usdValue} USD`;
+    }
+    
+    return 'No reward information available';
+}
+
+function assetIdToTicker(assetId: string): string {
+    if (assetId === '1337') return 'USDC';
+    if (assetId === '1984') return 'USDT';
+    //throw "Unknown AssetId";
+    return 'NaN';
 }

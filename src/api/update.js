@@ -13,7 +13,7 @@ async function handleReferenda(referenda, dotToUsdRate) {
 
   //console.log("Content.assetId: ", content);
 
-  // !! Nem mindig jól csinálja a számításokat.
+  
   const reward = extractReward(content, dotToUsdRate);
   console.log("Reward: ", reward);
   return;

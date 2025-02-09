@@ -46,7 +46,7 @@ export async function fetchDataFromAPI(limit: number = 200, network: Chain): Pro
 
 
 /** Fetch content of a specific referendum post by ID */ 
-export async function fetchReferendumContent(postId: number) {
+export async function fetchReferendumContent(postId: number, network: Chain) {
     try {
         const response = await axios.get('https://api.polkassembly.io/api/v1/posts/on-chain-post', {
             params: {
@@ -54,7 +54,7 @@ export async function fetchReferendumContent(postId: number) {
               proposalType: 'referendums_v2',
             },
             headers: {
-              'x-network': 'polkadot',
+              'x-network': network.toLowerCase(),
               'Content-Type': 'application/json',
             },
           });

@@ -3,6 +3,7 @@ import { Chain } from "../types/properties";
 import { createReferenda } from "./create";
 import { fetchDataFromAPI } from "./fetchReferendas";
 import { findNotionPageByPostId, getNotionPages } from "./findNotionPage";
+import { fetchDotToUsdRate, fetchKusToUsdRate } from "../utils/utils";
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
@@ -16,6 +17,11 @@ export async function refreshReferendas() {
         const polkadotPosts = await fetchDataFromAPI(30, Chain.Polkadot);
         const kusamaPosts = await fetchDataFromAPI(30, Chain.Kusama);
         const pages = await getNotionPages();
+        const dotUsdRate = await fetchDotToUsdRate();
+        const kusUsdRate = await fetchKusToUsdRate();
+        console.log("Kusama: ", kusUsdRate)
+
+        //Promise.all()
 
         // Combine them into one array
         const referendas = [...polkadotPosts.referendas, ...kusamaPosts.referendas];
@@ -24,12 +30,13 @@ export async function refreshReferendas() {
         for (const referenda of referendas) {
             // If Referenda exist in Notion, update it, otherwise, create new page
             const found = await findNotionPageByPostId(pages, referenda.post_id);
+            const exchangeRate = referenda.network === Chain.Polkadot ?dotUsdRate : kusUsdRate;
 
             if (found) {
                 console.log(`Proposal ${referenda.post_id} found in Notion.`);
                 try {
                     // UPDATE
-                    
+                      await createReferenda(notionDatabaseId, referenda, exchangeRate, referenda.network);
                 } catch (error) {
                     console.error("Error updating referenda: ", (error as any).message);
                 }
@@ -37,7 +44,7 @@ export async function refreshReferendas() {
                 console.log(`This proposal is not in Notion. ${referenda.post_id}`);
                 console.log(referenda.status)
                 try {
-                    await createReferenda(notionDatabaseId, referenda, referenda.network);
+                    await createReferenda(notionDatabaseId, referenda, exchangeRate, referenda.network);
                 } catch (error) {
                     console.error("Error creating referenda: ", (error as any).message);
                 }
