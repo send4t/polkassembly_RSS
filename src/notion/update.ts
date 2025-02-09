@@ -1,5 +1,5 @@
 import axios from "axios";
-import { fetchReferendumContent } from "../fetchReferendas";
+import { fetchReferendumContent } from "../polkAssembly/fetchReferendas";
 import { NotionPageId, NotionProperties, NotionUpdatePageRequest, UpdateReferendumInput } from "../types/notion";
 import { PolkassemblyReferenda } from "../types/polkassemly";
 import { Chain } from "../types/properties";
