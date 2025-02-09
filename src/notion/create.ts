@@ -53,6 +53,7 @@ export async function createReferenda(
     console.log('Page created successfully:', response.data);
   } catch (error) {
     console.error('Error creating page:', (error as any).response ? (error as any).response.data : (error as any).message);
+    throw error;
   }
 }
 

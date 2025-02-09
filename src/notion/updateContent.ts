@@ -1,10 +1,11 @@
 import axios from "axios";
 import { convertHtmlToNotionBlocks } from "../utils/html";
+import { NotionPageId } from "../types/notion";
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 
 
-export async function updateContent(pageId: string, content: string) {
+export async function updateContent(pageId: NotionPageId, content: string) {
     const notionApiUrl = `https://api.notion.com/v1/blocks/${pageId}/children`;
 
     try {

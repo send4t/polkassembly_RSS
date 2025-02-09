@@ -3,6 +3,7 @@ import { createReferenda } from "./notion/create";
 import { fetchDataFromAPI } from "./fetchReferendas";
 import { findNotionPageByPostId, getNotionPages } from "./notion/findNotionPage";
 import { fetchDotToUsdRate, fetchKusToUsdRate } from "./utils/utils";
+import { updateReferenda } from "./notion/update";
 
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 
@@ -32,7 +33,7 @@ export async function refreshReferendas() {
             if (found) {
                 console.log(`Proposal ${referenda.post_id} found in Notion.`);
                 try {
-                    // UPDATE
+                    await updateReferenda(found.id, referenda, exchangeRate, referenda.network);
                 } catch (error) {
                     console.error("Error updating referenda: ", (error as any).message);
                 }
