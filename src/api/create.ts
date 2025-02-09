@@ -59,7 +59,7 @@ function prepareNotionData(
     if (input.name) {
       properties['Name'] = {
         type: 'title',
-        title: [{ text: { content: input.name } }]
+        title: [{ text: { content: `#${input.number}-${input.name}` } }]
       };
     }
 
@@ -119,7 +119,6 @@ function prepareNotionData(
       };
     }
   
-  console.log("PARENT: ", databaseId)
     return {
       object: 'page',
       parent: {
@@ -128,5 +127,4 @@ function prepareNotionData(
       },
       properties
     };
-  }
-  
+}

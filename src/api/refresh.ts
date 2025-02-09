@@ -1,3 +1,4 @@
+import axios from "axios";
 import { Chain } from "../types/properties";
 import { createReferenda } from "./create";
 import { fetchDataFromAPI } from "./fetchReferendas";
@@ -26,11 +27,20 @@ export async function refreshReferendas() {
 
             if (found) {
                 console.log(`Proposal ${referenda.post_id} found in Notion.`);
-                // UPDATE
+                try {
+                    // UPDATE
+                    
+                } catch (error) {
+                    console.error("Error updating referenda: ", (error as any).message);
+                }
             } else {
                 console.log(`This proposal is not in Notion. ${referenda.post_id}`);
                 console.log(referenda.status)
-                await createReferenda(notionDatabaseId, referenda, referenda.network);
+                try {
+                    await createReferenda(notionDatabaseId, referenda, referenda.network);
+                } catch (error) {
+                    console.error("Error creating referenda: ", (error as any).message);
+                }
             }
         }
     } catch (error) {
