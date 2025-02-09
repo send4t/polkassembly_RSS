@@ -1,11 +1,9 @@
-import axios from "axios";
 import { Chain } from "./types/properties";
 import { createReferenda } from "./create";
 import { fetchDataFromAPI } from "./fetchReferendas";
 import { findNotionPageByPostId, getNotionPages } from "./findNotionPage";
 import { fetchDotToUsdRate, fetchKusToUsdRate } from "./utils/utils";
 
-const notionApiToken = process.env.NOTION_API_TOKEN;
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 
 
