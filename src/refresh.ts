@@ -1,5 +1,5 @@
 import { Chain } from "./types/properties";
-import { createReferenda } from "./create";
+import { createReferenda } from "./notion/create";
 import { fetchDataFromAPI } from "./fetchReferendas";
 import { findNotionPageByPostId, getNotionPages } from "./findNotionPage";
 import { fetchDotToUsdRate, fetchKusToUsdRate } from "./utils/utils";
@@ -38,7 +38,6 @@ export async function refreshReferendas() {
                 }
             } else {
                 console.log(`This proposal is not in Notion. ${referenda.post_id}`);
-                console.log(referenda.status)
                 try {
                     await createReferenda(notionDatabaseId, referenda, exchangeRate, referenda.network);
                 } catch (error) {
