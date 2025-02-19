@@ -8,7 +8,6 @@ import { fetchReferendumContent } from '../polkAssembly/fetchReferendas';
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 
-
 /** Create a Referenda in the Notion database */
 export async function createReferenda(
   databaseId: NotionDatabaseId, 
@@ -29,7 +28,7 @@ export async function createReferenda(
     chain: network,
     origin: getValidatedOrigin(referenda.origin),
     timeline: getValidatedStatus(referenda.status),
-    status: undefined,
+    status: 'Not started',
     link: `https://${network.toLowerCase()}.polkassembly.io/referenda/${referenda.post_id}`,
     number: referenda.post_id,
     created_at: referenda.created_at

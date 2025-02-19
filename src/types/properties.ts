@@ -58,7 +58,7 @@ export enum Origin {
     Root = "Root",
     WhitelistedCaller = "WhitelistedCaller",
     Treasurer = "Treasurer",
-    ReferendaKiller = "ReferendaKiller"
+    ReferendumKiller = "ReferendumKiller"
 }
 
 
