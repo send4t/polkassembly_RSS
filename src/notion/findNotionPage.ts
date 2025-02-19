@@ -1,11 +1,12 @@
 import axios from "axios";
+import { NotionPage } from "../types/notion";
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 
 
 /** Function to query Notion database for a matching "URL" (post_id from URL) */ 
-export async function findNotionPageByPostId(pageList: any[], postId: number) {
+export async function findNotionPageByPostId(pageList: any[], postId: number): Promise<NotionPage | null> {
     try {
       const postIdString = postId.toString();
 
