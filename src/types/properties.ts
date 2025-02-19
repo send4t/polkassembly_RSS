@@ -11,7 +11,8 @@ export enum TimelineStatus {
     Enactment = "Enactment",
     TimedOut = "TimedOut",
     Executed = "Executed",
-    ConfirmStarted = "ConfirmStarted"
+    ConfirmStarted = "ConfirmStarted",
+    Rejected = "Rejected"
 }
 
 export enum VoteStatus {
@@ -56,7 +57,8 @@ export enum Origin {
     FellowshipAdmin = "FellowshipAdmin",
     Root = "Root",
     WhitelistedCaller = "WhitelistedCaller",
-    Treasurer = "Treasurer"
+    Treasurer = "Treasurer",
+    ReferendaKiller = "ReferendaKiller"
 }
 
 
