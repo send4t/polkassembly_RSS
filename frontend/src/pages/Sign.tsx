@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ApiPromise, WsProvider } from '@polkadot/api';
-import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
 import { AddressOrPair } from '@polkadot/api/types';
 import { Chain } from '../utils/types';
-import { ALICE, SS58_FORMAT } from '../utils/constants';
-import { encodeAddress } from '@polkadot/util-crypto';
 import logo from '../logo.svg';
 import '../App.css';
 import { sign } from '../utils/sign';
+import { validateChain } from '../utils/utils';
 
 
 export default function Sign() {
@@ -19,10 +16,25 @@ export default function Sign() {
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
+        const theMultisigList = params.get('multisig');
+        const refId = params.get('refid');
+        const nw = params.get('network');
         const height = params.get('height');
         const ix = params.get('index');
 
-        // Decode the call data JSON and callHash, and log them to the console
+        if (theMultisigList) {
+            const multisigArr = theMultisigList.split(',');
+            setMultisig(multisigArr);
+            console.log("Multisig members:", multisigArr);
+        }
+        if (refId) {
+            setReferendumId(Number(refId));
+            console.log("Referendum ID:", refId);
+        }
+        if (nw) {
+            const validNw = validateChain(nw);
+            setNetwork(validNw);
+        }
         if (height) {
             setHeight(Number(height));
             console.log("Height:", height);
