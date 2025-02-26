@@ -57,7 +57,7 @@ export async function createAndSign(
             if (result) {
                 console.log(`Transaction included in block ${result.blockNumber} at index ${result.index}`);
 
-                const url = `http://localhost:3000/sign?height=${result.blockNumber}&index=${result.index}`;
+                const url = `http://localhost:3000/sign?network=${network}&refid=${id}&multisig=${multisig}&height=${result.blockNumber}&index=${result.index}`;
                 console.log("Url: ", url);
             } else {
                 console.log("Transaction not found within the given retries.");
