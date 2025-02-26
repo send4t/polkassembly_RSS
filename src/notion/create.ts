@@ -15,7 +15,7 @@ export async function createReferenda(
   referenda: PolkassemblyReferenda,
   exchangeRate: number,
   network: Chain
-) {
+): Promise<NotionDatabaseId> {
   const notionApiUrl = 'https://api.notion.com/v1/pages';
 
   // Fetch content (description) and reward information
@@ -51,6 +51,8 @@ export async function createReferenda(
     await updateContent(response.data.id, contentResp.content);
 
     console.log('Page created successfully:', response.data);
+    return response.data.id;
+
   } catch (error) {
     console.error('Error creating page:', (error as any).response ? (error as any).response.data : (error as any).message);
     throw error;

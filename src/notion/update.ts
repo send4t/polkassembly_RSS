@@ -3,7 +3,7 @@ import { fetchReferendumContent } from "../polkAssembly/fetchReferendas";
 import { NotionPageId, NotionProperties, NotionUpdatePageRequest, UpdateReferendumInput } from "../types/notion";
 import { PolkassemblyReferenda } from "../types/polkassemly";
 import { Chain } from "../types/properties";
-import { calculateReward, getValidatedStatus } from "../utils/utils";
+import { calculateReward, getValidatedStatus, sleep } from "../utils/utils";
 import { updateContent } from "./updateContent";
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
@@ -15,7 +15,7 @@ export async function updateReferenda(
     referenda: PolkassemblyReferenda,
     exchangeRate: number,
     network: Chain
-) {
+): Promise<NotionPageId> {
     const notionApiUrl = `https://api.notion.com/v1/pages/${pageId}`;
 
     // Fetch content (description) and reward information
@@ -34,7 +34,7 @@ export async function updateReferenda(
     const data = prepareNotionData(properties);
 
     try {
-        const response = await axios.patch(notionApiUrl, data, {
+        await axios.patch(notionApiUrl, data, {
             headers: {
               'Authorization': `Bearer ${notionApiToken}`,
               'Content-Type': 'application/json',
@@ -42,8 +42,11 @@ export async function updateReferenda(
             },
         });
 
-        // Add content to the newly created page
+        // Add content to the newly created page (wait 100ms to avoid conflict)
+        await sleep(100);
         await updateContent(pageId, contentResp.content);
+
+        return pageId;
         
     } catch (error) {
         console.error('Error updating page:', (error as any).response ? (error as any).response.data : (error as any).message);

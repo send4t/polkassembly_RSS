@@ -11,6 +11,7 @@ const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 export async function refreshReferendas() {
     try {
         if (!notionDatabaseId) throw "Please specify REFRESH_INTERVAL in .env!";
+        console.log("Refreshing Referendas...")
 
         // Fetch latest proposals from both networks, get list of Notion pages and fetch exchange rates
         const [polkadotPosts, kusamaPosts, pages, dotUsdRate, kusUsdRate] = await Promise.all([
