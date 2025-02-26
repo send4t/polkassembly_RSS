@@ -1,6 +1,0 @@
-{
-    "functions": {
-      "api/run-update.js": { "maxDuration": 10 }
-    }
-  }
-  
