@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Run Update</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    button {
+      padding: 15px 30px;
+      font-size: 18px;
+      color: white;
+      background-color: #0070f3;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #005bb5;
+    }
+    #status {
+      width: 80%;
+      height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background-color: #fff;
+      margin-top: 20px;
+    }
+    #status div {
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <button id="runUpdate">Run Update</button>
+  <div id="status"></div>
+
+  <script>
+    let lastProcessedPostId = 1278; // Starting point
+    const statusDiv = document.getElementById("status");
+
+    function logStatus(message) {
+      console.log("Logging status:", message); // Debugging log
+      const logMessage = document.createElement("div");
+      logMessage.textContent = message;
+      statusDiv.appendChild(logMessage);
+      statusDiv.scrollTop = statusDiv.scrollHeight; // Auto-scroll to the bottom
+    }
+
+    async function updatePosts(lastProcessedPostId) {
+      try {
+        const response = await fetch('/api/run-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lastProcessedPostId }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("API Response:", data); // Log the response
+        lastProcessedPostId = data.nextPostId;
+
+        logStatus(data.message); // Display the update message
+
+        if (lastProcessedPostId < 1400) {
+          setTimeout(() => updatePosts(lastProcessedPostId), 500); // Continue polling
+        } else {
+          logStatus("All posts processed successfully.");
+        }
+      } catch (err) {
+        console.error("Error:", err); // Log the error
+        logStatus("An error occurred. Check the console for details.");
+      }
+    }
+
+    document.getElementById("runUpdate").addEventListener("click", () => {
+      logStatus("Starting the update process. This may take a while...");
+      updatePosts(lastProcessedPostId);
+    });
+  </script>
+</body>
+</html>
