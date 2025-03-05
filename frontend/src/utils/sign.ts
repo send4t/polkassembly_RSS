@@ -1,7 +1,7 @@
 import { ApiPromise, WsProvider } from "@polkadot/api";
 import { web3Accounts, web3Enable, web3FromAddress } from "@polkadot/extension-dapp";
 import { encodeAddress } from "@polkadot/util-crypto";
-import { ALICE, APP_NAME, SS58_FORMAT } from "./constants";
+import { ALICE, APP_NAME, BALANCE, KUSAMA_PROVIDER, PASEO_PROVIDER, SS58_FORMAT } from "./constants";
 import { AddressOrPair } from "@polkadot/api/types";
 import { Chain, ReferendumId } from "./types";
 
@@ -10,6 +10,8 @@ export async function sign(
     multisig: AddressOrPair[], 
     network: Chain, 
     id: ReferendumId,
+    vote: boolean,
+    conviction: number = 6,
     height: number,
     index: number
 ): Promise<void> {
@@ -19,15 +21,15 @@ export async function sign(
     const accounts = await web3Accounts();
     const account = accounts[0];
 
-    const wsProvider = new WsProvider('wss://paseo.rpc.amforc.com');
+    const wsProvider = new WsProvider(KUSAMA_PROVIDER);
     const api = await ApiPromise.create({ provider: wsProvider });
     const senderAddress = encodeAddress(account.address, SS58_FORMAT);
     const injector = await web3FromAddress(senderAddress);
     
     // Correctly structure max_weight
     const maxWeight = {
-        refTime: api.createType('Compact<u64>', 1000000000),
-        proofSize: api.createType('Compact<u64>', 1000000)
+        refTime: api.createType('Compact<u64>', 2000000000),
+        proofSize: api.createType('Compact<u64>', 2000000)
     };    
 
     // Example multisig call with max_weight
@@ -39,7 +41,13 @@ export async function sign(
         height,
         index
     };
-    const call = api.tx.balances.transferAllowDeath(ALICE, 10000000000);
+    const call = api.tx.convictionVoting.vote(
+        id,
+        { Standard: {
+            vote: { aye: vote, conviction: 1 },
+            balance: BALANCE
+        }}
+    );
     
     // Create the multisig transaction
     const multisigCall = api.tx.multisig.asMulti(
@@ -52,7 +60,7 @@ export async function sign(
 
     try {
         const txHash = await multisigCall.signAndSend(
-            senderAddress, 
+            senderAddress,
             { signer: injector.signer }
         );
 

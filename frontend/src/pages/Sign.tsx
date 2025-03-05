@@ -13,6 +13,7 @@ export default function Sign() {
     const [network, setNetwork] = useState<Chain>();
     const [height, setHeight] = useState<number>();
     const [index, setIndex] = useState<number>();
+    const vote = true;
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -63,7 +64,7 @@ export default function Sign() {
             return;
         }
 
-        await sign(multisig, network, referendumId, height, index);
+        await sign(multisig, network, referendumId, vote, 6, height, index);
     }
 
     

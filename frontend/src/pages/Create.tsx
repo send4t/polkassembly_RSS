@@ -11,6 +11,7 @@ export default function Create() {
     const [multisig, setMultisig] = useState<AddressOrPair[]>([]);
     const [referendumId, setReferendumId] = useState<ReferendumId>();
     const [network, setNetwork] = useState<Chain>();
+    const vote = true;
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -47,7 +48,7 @@ export default function Create() {
             return;
         }
 
-        await createAndSign(multisig, network, referendumId);
+        await createAndSign(multisig, network, referendumId, vote, 6);
     }
 
     return (
