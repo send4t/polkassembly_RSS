@@ -1,7 +1,7 @@
 import { ApiPromise, WsProvider } from "@polkadot/api";
 import { web3Accounts, web3Enable, web3FromAddress } from "@polkadot/extension-dapp";
 import { encodeAddress } from "@polkadot/util-crypto";
-import { ALICE, APP_NAME, SS58_FORMAT } from "./constants";
+import { ALICE, APP_NAME, BALANCE, KUSAMA_PROVIDER, PASEO_PROVIDER, SS58_FORMAT } from "./constants";
 import { AddressOrPair } from "@polkadot/api/types";
 import { Chain, ReferendumId } from "./types";
 
@@ -9,7 +9,9 @@ import { Chain, ReferendumId } from "./types";
 export async function createAndSign(
     multisig: AddressOrPair[], 
     network: Chain, 
-    id: ReferendumId
+    id: ReferendumId,
+    vote: boolean,
+    conviction: number = 6,
 ): Promise<void> {
     await web3Enable(APP_NAME);
 
@@ -17,15 +19,15 @@ export async function createAndSign(
     const accounts = await web3Accounts();
     const account = accounts[0];
 
-    const wsProvider = new WsProvider('wss://paseo.rpc.amforc.com');
+    const wsProvider = new WsProvider(KUSAMA_PROVIDER);
     const api = await ApiPromise.create({ provider: wsProvider });
     //api.consts.system.ss58Prefix.toHuman()
     const senderAddress = encodeAddress(account.address, SS58_FORMAT);
     const injector = await web3FromAddress(senderAddress);
     
     const maxWeight = {
-        refTime: api.createType('Compact<u64>', 1000000000),
-        proofSize: api.createType('Compact<u64>', 1000000)
+        refTime: api.createType('Compact<u64>', 2000000000),
+        proofSize: api.createType('Compact<u64>', 2000000)
     };    
 
     // Create the  multisig call
@@ -33,9 +35,29 @@ export async function createAndSign(
     const otherSignatories = multisig
         .filter((address) => address !== senderAddress)
         .sort();
-    console.log("Other signatories: ", otherSignatories)
+console.log("Other signatories: ", otherSignatories)
     const maybeTimepoint = null;
-    const call = api.tx.balances.transferAllowDeath(ALICE, 10000000000);
+console.log("Api.txt ", api.tx)
+console.log(Object.keys(api.tx.convictionVoting));
+
+    const call = api.tx.convictionVoting.vote(
+        id,
+        { Standard: {
+            vote: { aye: vote, conviction: 1 },
+            balance: BALANCE
+        }}
+    );
+
+const balance = await api.query.system.account("Ht96h36AiW7x2PEEpR7Xkhxtue4KxfAccsMjHbHfDSi468R");
+console.log("Ht96h36AiW7x2PEEpR7Xkhxtue4KxfAccsMjHbHfDSi468R", balance.toHuman());
+
+console.log("Call JSON:", JSON.stringify(call.toHuman()));
+console.log("Call Hex:", call.toHex());
+const callHex = call.toHex();
+console.log("Encoded Call Hex:", callHex);
+const proxies = await api.query.proxy.proxies(senderAddress);
+console.log("Proxies:", proxies.toHuman());
+
     
     // Create the multisig transaction
     const multisigCall = api.tx.multisig.asMulti(
