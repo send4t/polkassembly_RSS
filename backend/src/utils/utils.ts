@@ -81,3 +81,7 @@ function assetIdToTicker(assetId: string): string {
     //throw "Unknown AssetId";
     return 'NaN';
 }
+
+export async function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}

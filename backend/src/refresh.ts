@@ -1,8 +1,9 @@
 import { Chain } from "./types/properties";
-import { createReferenda } from "./create";
-import { fetchDataFromAPI } from "./fetchReferendas";
-import { findNotionPageByPostId, getNotionPages } from "./findNotionPage";
+import { createReferenda } from "./notion/create";
+import { fetchDataFromAPI } from "./polkAssembly/fetchReferendas";
+import { findNotionPageByPostId, getNotionPages } from "./notion/findNotionPage";
 import { fetchDotToUsdRate, fetchKusToUsdRate } from "./utils/utils";
+import { updateReferenda } from "./notion/update";
 
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 
@@ -10,6 +11,7 @@ const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 export async function refreshReferendas() {
     try {
         if (!notionDatabaseId) throw "Please specify REFRESH_INTERVAL in .env!";
+        console.log("Refreshing Referendas...")
 
         // Fetch latest proposals from both networks, get list of Notion pages and fetch exchange rates
         const [polkadotPosts, kusamaPosts, pages, dotUsdRate, kusUsdRate] = await Promise.all([
@@ -32,13 +34,12 @@ export async function refreshReferendas() {
             if (found) {
                 console.log(`Proposal ${referenda.post_id} found in Notion.`);
                 try {
-                    // UPDATE
+                    await updateReferenda(found.id, referenda, exchangeRate, referenda.network);
                 } catch (error) {
                     console.error("Error updating referenda: ", (error as any).message);
                 }
             } else {
                 console.log(`This proposal is not in Notion. ${referenda.post_id}`);
-                console.log(referenda.status)
                 try {
                     await createReferenda(notionDatabaseId, referenda, exchangeRate, referenda.network);
                 } catch (error) {
