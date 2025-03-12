@@ -17,6 +17,8 @@ export async function updateReferenda(
     network: Chain
 ): Promise<NotionPageId> {
     const notionApiUrl = `https://api.notion.com/v1/pages/${pageId}`;
+    const maxRetries = 3;
+    let attempt = 0;
 
     // Fetch content (description) and reward information
     const contentResp = await fetchReferendumContent(referenda.post_id, referenda.network);
@@ -42,9 +44,33 @@ export async function updateReferenda(
             },
         });
 
-        // Add content to the newly created page (wait 100ms to avoid conflict)
+        // Add content to the newly created page with retry mechanism
         await sleep(100);
-        await updateContent(pageId, contentResp.content);
+        
+        // Initialize retry variables
+        attempt = 0;
+        let contentUpdateSuccess = false;
+        
+        // Retry loop for content update
+        while (attempt < maxRetries && !contentUpdateSuccess) {
+            try {
+                await updateContent(pageId, contentResp.content);
+                contentUpdateSuccess = true;
+            } catch (contentError) {
+                attempt++;
+                console.log(`Content update attempt ${attempt} failed: ${(contentError as any).message}`);
+                
+                if (attempt < maxRetries) {
+                    // Exponential backoff: 200ms, 400ms, 800ms...
+                    const delayMs = 200 * Math.pow(2, attempt - 1);
+                    console.log(`Retrying after ${delayMs}ms...`);
+                    await sleep(delayMs);
+                } else {
+                    console.error('Max retries reached for content update, giving up.');
+                    throw contentError;
+                }
+            }
+        }
 
         return pageId;
         
@@ -67,7 +93,7 @@ function prepareNotionData(input: UpdateReferendumInput): NotionUpdatePageReques
     if (input.requestedAmount !== undefined) {
         properties['Requested $'] = {
             type: 'number',
-            number: input.requestedAmount
+            number: input.requestedAmount === null ? undefined : input.requestedAmount
         };
     }
 

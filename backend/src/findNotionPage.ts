@@ -1,5 +1,5 @@
 import axios from "axios";
-import { NotionPage } from "../types/notion";
+import { NotionPage } from "./types/notion";
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;

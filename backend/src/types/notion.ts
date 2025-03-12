@@ -10,7 +10,7 @@ export interface CreateReferendumInput {
     chain?: Chain;
     origin?: Origin;
     timeline?: TimelineStatus;
-    status?: VoteStatus;
+    status?: VoteStatus.NotStarted;
     link?: Link;
     voting?: VotingTime;
     created_at?: string;
@@ -32,55 +32,21 @@ export interface NotionPage {
 }
 
 export interface NotionProperties {
-    'Name'?: {
-      type: 'title';
-      title: Array<{
-        text: {
-          content: string;
+    [key: string]: {
+        type: string;
+        title?: Array<{ text: { content: string } }>;
+        rich_text?: Array<{ text: { content: string } }>;
+        number?: number;
+        select?: { name: string };
+        status?: { name: string };
+        url?: string;
+        date?: string | {
+            start: string;
+            end?: string;
+            time_zone?: string | null;
         };
-      }>;
     };
-    'Number'?: {
-      type: 'number';
-      number: number;
-    };
-    'Link'?: {
-      type: 'url';
-      url: string;
-    };
-    'Requested $'?: {
-      type: 'number';
-      number: number | null;
-    };
-    'Chain'?: {
-      type: 'select';
-      select: {
-        name: Chain;
-      };
-    };
-    'Origin'?: {
-      type: 'select';
-      select: {
-        name: Origin;
-      };
-    };
-    'Timeline'?: {
-      type: 'status';
-      status: {
-        name: TimelineStatus;
-      };
-    };
-    'Status'?: {
-      type: 'status';
-      status: {
-        name: VoteStatus;
-      };
-    };
-    'Voting'?: {
-      type: 'date';
-      date: string;
-    };
-  }
+}
 
 export interface NotionCreatePageRequest {
     object: 'page';

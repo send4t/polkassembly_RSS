@@ -13,18 +13,19 @@ export function convertHtmlToNotionBlocks(html: string) {
         blocks.push(createParagraphBlock(node.textContent?.trim() || ""));
       } else if (node.nodeType === 1) {
         // Element Node
-        if (node.nodeName === "P") {
-          blocks.push(createParagraphBlock(node.textContent?.trim() || ""));
-        } else if (node.nodeName === "H1") {
-          blocks.push(createHeadingBlock(node.textContent || "", 1));
-        } else if (node.nodeName === "H2") {
-          blocks.push(createHeadingBlock(node.textContent || "", 2));
-        } else if (node.nodeName === "UL") {
-          blocks.push(...createListBlocks(node, "bulleted"));
-        } else if (node.nodeName === "OL") {
-          blocks.push(...createListBlocks(node, "numbered"));
-        } else if (node.nodeName === "A") {
-          blocks.push(createParagraphBlock(node.textContent || "", node.getAttribute("href")));
+        const element = node as HTMLElement;
+        if (element.nodeName === "P") {
+          blocks.push(createParagraphBlock(element.textContent?.trim() || ""));
+        } else if (element.nodeName === "H1") {
+          blocks.push(createHeadingBlock(element.textContent || "", 1));
+        } else if (element.nodeName === "H2") {
+          blocks.push(createHeadingBlock(element.textContent || "", 2));
+        } else if (element.nodeName === "UL") {
+          blocks.push(...createListBlocks(element as Element, "bulleted"));
+        } else if (element.nodeName === "OL") {
+          blocks.push(...createListBlocks(element as Element, "numbered"));
+        } else if (element.nodeName === "A") {
+          blocks.push(createParagraphBlock(element.textContent || "", element.getAttribute("href") || undefined));
         }
       }
     });

@@ -1,10 +1,10 @@
 import axios from 'axios';
-import { CreateReferendumInput, NotionCreatePageRequest, NotionDatabaseId, NotionProperties } from '../types/notion';
-import { Chain } from '../types/properties';
-import { calculateReward, getValidatedOrigin, getValidatedStatus } from '../utils/utils';
-import { PolkassemblyReferenda } from '../types/polkassemly';
+import { CreateReferendumInput, NotionCreatePageRequest, NotionDatabaseId, NotionProperties } from './types/notion';
+import { Chain, VoteStatus } from './types/properties';
+import { calculateReward, getValidatedOrigin, getValidatedStatus } from './utils/utils';
+import { PolkassemblyReferenda } from './types/polkassemly';
 import { updateContent } from './updateContent';
-import { fetchReferendumContent } from '../polkAssembly/fetchReferendas';
+import { fetchReferendumContent } from './polkAssembly/fetchReferendas';
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 
@@ -28,7 +28,7 @@ export async function createReferenda(
     chain: network,
     origin: getValidatedOrigin(referenda.origin),
     timeline: getValidatedStatus(referenda.status),
-    status: 'Not started',
+    status: VoteStatus.NotStarted,
     link: `https://${network.toLowerCase()}.polkassembly.io/referenda/${referenda.post_id}`,
     number: referenda.post_id,
     created_at: referenda.created_at
@@ -82,7 +82,7 @@ function prepareNotionData(
     if (input.requestedAmount !== undefined) {
       properties['Requested $'] = {
         type: 'number',
-        number: input.requestedAmount
+        number: input.requestedAmount === null ? undefined : input.requestedAmount
       };
     }
   

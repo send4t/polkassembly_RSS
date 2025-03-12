@@ -1,6 +1,6 @@
 import axios from "axios";
-import { convertHtmlToNotionBlocks } from "../utils/html";
-import { NotionPageId } from "../types/notion";
+import { convertHtmlToNotionBlocks } from "./utils/html";
+import { NotionPageId } from "./types/notion";
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 
