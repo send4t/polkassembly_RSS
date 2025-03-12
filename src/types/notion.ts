@@ -13,6 +13,7 @@ export interface CreateReferendumInput {
     status?: VoteStatus;
     link?: Link;
     voting?: VotingTime;
+    created_at?: string;
 }
 
 export interface UpdateReferendumInput {

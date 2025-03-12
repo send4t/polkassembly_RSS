@@ -8,7 +8,6 @@ import { fetchReferendumContent } from '../polkAssembly/fetchReferendas';
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 
-
 /** Create a Referenda in the Notion database */
 export async function createReferenda(
   databaseId: NotionDatabaseId, 
@@ -29,9 +28,10 @@ export async function createReferenda(
     chain: network,
     origin: getValidatedOrigin(referenda.origin),
     timeline: getValidatedStatus(referenda.status),
-    status: undefined,
+    status: 'Not started',
     link: `https://${network.toLowerCase()}.polkassembly.io/referenda/${referenda.post_id}`,
-    number: referenda.post_id
+    number: referenda.post_id,
+    created_at: referenda.created_at
   }
 
   // Prepare the data for Notion
@@ -114,10 +114,20 @@ function prepareNotionData(
       };
     }
 
-    if (input.voting) {
+    if (input.created_at) {
+      const creationDate = new Date(input.created_at);
+      const isPolkadot = input.chain?.toLowerCase() === 'polkadot'; 
+      const votingDurationDays = isPolkadot ? 28 : 14; // duration is manually calculated which is misleading in some cases
+      const endDate = new Date(creationDate);
+      endDate.setDate(creationDate.getDate() + votingDurationDays);
+  
       properties['Voting'] = {
         type: 'date',
-        date: input.voting
+        date: {
+          start: creationDate.toISOString(),
+          end: endDate.toISOString(),
+          time_zone: null
+        }
       };
     }
 
