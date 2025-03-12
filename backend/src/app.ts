@@ -15,6 +15,7 @@ app.get('/', (req: Request, res: Response ) => {
     res.send('Hello, world! The app is running.');
 });
 
+
 refreshReferendas();
 setInterval(refreshReferendas, Number(process.env.REFRESH_INTERVAL) * 1000);
 

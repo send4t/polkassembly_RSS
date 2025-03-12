@@ -44,10 +44,8 @@ export async function updateReferenda(
             },
         });
 
-        // Add content to the newly created page with retry mechanism
         await sleep(100);
         
-        // Initialize retry variables
         attempt = 0;
         let contentUpdateSuccess = false;
         
@@ -61,7 +59,6 @@ export async function updateReferenda(
                 console.log(`Content update attempt ${attempt} failed: ${(contentError as any).message}`);
                 
                 if (attempt < maxRetries) {
-                    // Exponential backoff: 200ms, 400ms, 800ms...
                     const delayMs = 200 * Math.pow(2, attempt - 1);
                     console.log(`Retrying after ${delayMs}ms...`);
                     await sleep(delayMs);
@@ -83,8 +80,9 @@ export async function updateReferenda(
 function prepareNotionData(input: UpdateReferendumInput): NotionUpdatePageRequest {
     const properties: NotionProperties = {};
 
-    if (input.name) {
-        properties['Name'] = {
+    if (input.name && input.number) {
+        // The title property is actually called "Number" in the database
+        properties['Number'] = {
             type: 'title',
             title: [{ text: { content: `#${input.number}-${input.name}` } }]
         };
@@ -98,7 +96,7 @@ function prepareNotionData(input: UpdateReferendumInput): NotionUpdatePageReques
     }
 
     if (input.timeline) {
-        properties['Timeline'] = {
+        properties['Referendum timeline'] = {
             type: 'status',
             status: { name: input.timeline }
         };
