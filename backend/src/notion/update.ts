@@ -26,10 +26,10 @@ export async function updateReferenda(
 
     // Fill the properties, that are coming from Polkassembly
     const properties: UpdateReferendumInput = {
-        name: referenda.title,
+        title: referenda.title,
         number: referenda.post_id,
         requestedAmount: rewardString,
-        timeline: getValidatedStatus(referenda.status)
+        referendumTimeline: getValidatedStatus(referenda.status)
     }
 
     // Prepare the data for Notion
@@ -80,11 +80,10 @@ export async function updateReferenda(
 function prepareNotionData(input: UpdateReferendumInput): NotionUpdatePageRequest {
     const properties: NotionProperties = {};
 
-    if (input.name && input.number) {
-        // The title property is actually called "Number" in the database
-        properties['Number'] = {
+    if (input.title && input.number) {
+        properties['Title'] = {
             type: 'title',
-            title: [{ text: { content: `#${input.number}-${input.name}` } }]
+            title: [{ text: { content: `#${input.number}-${input.title}` } }]
         };
     }
 
@@ -95,10 +94,10 @@ function prepareNotionData(input: UpdateReferendumInput): NotionUpdatePageReques
         };
     }
 
-    if (input.timeline) {
+    if (input.referendumTimeline) {
         properties['Referendum timeline'] = {
             type: 'status',
-            status: { name: input.timeline }
+            status: { name: input.referendumTimeline }
         };
     }
 

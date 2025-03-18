@@ -4,23 +4,23 @@ export type NotionDatabaseId = string;
 export type NotionPageId = string;
 
 export interface CreateReferendumInput {
-    name?: string;
+    title?: string;
     number?: number;
     requestedAmount?: number | null;
     chain?: Chain;
     origin?: Origin;
-    timeline?: TimelineStatus;
-    status?: VoteStatus.NotStarted;
+    referendumTimeline?: TimelineStatus;
+    internalStatus?: VoteStatus;
     link?: Link;
     voting?: VotingTime;
     created_at?: string;
 }
 
 export interface UpdateReferendumInput {
-  name?: string;
+  title?: string;
   number?: number;
   requestedAmount?: number | null;
-  timeline?: TimelineStatus;
+  referendumTimeline?: TimelineStatus;
 }
 
 export interface NotionPage {
