@@ -74,8 +74,8 @@ function prepareNotionData(
 
     if (input.number) {
         properties['Number'] = {
-          type: 'number',
-          number: input.number
+          type: 'title',
+          title: [{ text: { content: input.number.toString() } }]
         };
       }
   
