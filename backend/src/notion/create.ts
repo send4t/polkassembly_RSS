@@ -67,15 +67,15 @@ function prepareNotionData(
   
     if (input.title) {
       properties['Title'] = {
-        type: 'title',
-        title: [{ text: { content: `#${input.number}-${input.title}` } }]
+        type: 'rich_text',
+        rich_text: [{ text: { content: `#${input.number}-${input.title}` } }]
       };
     }
 
     if (input.number) {
         properties['Number'] = {
-          type: 'number',
-          number: input.number
+          type: 'title',
+          title: [{ text: { content: input.number.toString() } }]
         };
       }
   
