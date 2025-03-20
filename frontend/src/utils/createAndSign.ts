@@ -1,7 +1,9 @@
 import { ApiPromise, WsProvider } from "@polkadot/api";
 import { web3Accounts, web3Enable, web3FromAddress } from "@polkadot/extension-dapp";
-import { encodeAddress } from "@polkadot/util-crypto";
-import { ALICE, APP_NAME, BALANCE, KUSAMA_PROVIDER, PASEO_PROVIDER, SS58_FORMAT } from "./constants";
+import { encodeAddress, cryptoWaitReady, encodeMultiAddress } from "@polkadot/util-crypto";
+import { createTestKeyring } from '@polkadot/keyring';
+import { u8aToHex } from '@polkadot/util';
+import { ALICE, APP_NAME, BALANCE, BOB, KUSAMA_PROVIDER, PASEO_PROVIDER, SS58_FORMAT, THRESHOLD } from "./constants";
 import { AddressOrPair } from "@polkadot/api/types";
 import { Chain, ReferendumId } from "./types";
 
@@ -24,6 +26,27 @@ export async function createAndSign(
     //api.consts.system.ss58Prefix.toHuman()
     const senderAddress = encodeAddress(account.address, SS58_FORMAT);
     const injector = await web3FromAddress(senderAddress);
+
+    /* Mimir Configuration */
+    const config = {
+        clientGateway: 'https://mimir-client.mimir.global', // Replace with actual API endpoint
+        chain: 'polkadot'
+    };
+    /** */
+
+    // Create multisig address
+    const multisigAddress = encodeMultiAddress(
+        [ALICE, BOB],
+        THRESHOLD,
+    );
+
+    // Prepare request payload
+
+    // Create signature
+
+    // Prepare final request
+
+    // Send request
     
     const maxWeight = {
         refTime: api.createType('Compact<u64>', 2000000000),
