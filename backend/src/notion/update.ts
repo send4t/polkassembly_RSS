@@ -26,10 +26,10 @@ export async function updateReferenda(
 
     // Fill the properties, that are coming from Polkassembly
     const properties: UpdateReferendumInput = {
-        name: referenda.title,
+        title: referenda.title,
         number: referenda.post_id,
         requestedAmount: rewardString,
-        timeline: getValidatedStatus(referenda.status)
+        referendumTimeline: getValidatedStatus(referenda.status)
     }
 
     // Prepare the data for Notion
@@ -44,10 +44,8 @@ export async function updateReferenda(
             },
         });
 
-        // Add content to the newly created page with retry mechanism
         await sleep(100);
         
-        // Initialize retry variables
         attempt = 0;
         let contentUpdateSuccess = false;
         
@@ -61,7 +59,6 @@ export async function updateReferenda(
                 console.log(`Content update attempt ${attempt} failed: ${(contentError as any).message}`);
                 
                 if (attempt < maxRetries) {
-                    // Exponential backoff: 200ms, 400ms, 800ms...
                     const delayMs = 200 * Math.pow(2, attempt - 1);
                     console.log(`Retrying after ${delayMs}ms...`);
                     await sleep(delayMs);
@@ -83,10 +80,10 @@ export async function updateReferenda(
 function prepareNotionData(input: UpdateReferendumInput): NotionUpdatePageRequest {
     const properties: NotionProperties = {};
 
-    if (input.name) {
-        properties['Name'] = {
-            type: 'title',
-            title: [{ text: { content: `#${input.number}-${input.name}` } }]
+    if (input.title && input.number) {
+        properties['Title'] = {
+            type: 'rich_text',
+            rich_text: [{ text: { content: `#${input.number}-${input.title}` } }]
         };
     }
 
@@ -97,10 +94,10 @@ function prepareNotionData(input: UpdateReferendumInput): NotionUpdatePageReques
         };
     }
 
-    if (input.timeline) {
-        properties['Timeline'] = {
+    if (input.referendumTimeline) {
+        properties['Referendum timeline'] = {
             type: 'status',
-            status: { name: input.timeline }
+            status: { name: input.referendumTimeline }
         };
     }
 

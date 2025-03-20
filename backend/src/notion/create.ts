@@ -23,12 +23,12 @@ export async function createReferenda(
 
   // Fill the properties, that are coming from Polkassembly
   const properties: CreateReferendumInput = {
-    name: referenda.title,
+    title: referenda.title,
     requestedAmount: rewardString,
     chain: network,
     origin: getValidatedOrigin(referenda.origin),
-    timeline: getValidatedStatus(referenda.status),
-    status: VoteStatus.NotStarted,
+    referendumTimeline: getValidatedStatus(referenda.status),
+    internalStatus: VoteStatus.NotStarted,
     link: `https://${network.toLowerCase()}.polkassembly.io/referenda/${referenda.post_id}`,
     number: referenda.post_id,
     created_at: referenda.created_at
@@ -65,17 +65,17 @@ function prepareNotionData(
   ): NotionCreatePageRequest {
     const properties: NotionProperties = {};
   
-    if (input.name) {
-      properties['Name'] = {
-        type: 'title',
-        title: [{ text: { content: `#${input.number}-${input.name}` } }]
+    if (input.title) {
+      properties['Title'] = {
+        type: 'rich_text',
+        rich_text: [{ text: { content: `#${input.number}-${input.title}` } }]
       };
     }
 
     if (input.number) {
         properties['Number'] = {
-          type: 'number',
-          number: input.number
+          type: 'title',
+          title: [{ text: { content: input.number.toString() } }]
         };
       }
   
@@ -100,17 +100,17 @@ function prepareNotionData(
       };
     }
   
-    if (input.timeline) {
-      properties['Timeline'] = {
+    if (input.referendumTimeline) {
+      properties['Referendum timeline'] = {
         type: 'status',
-        status: { name: input.timeline }
+        status: { name: input.referendumTimeline }
       };
     }
   
-    if (input.status) {
-      properties['Status'] = {
+    if (input.internalStatus) {
+      properties['Internal status'] = {
         type: 'status',
-        status: { name: input.status }
+        status: { name: input.internalStatus }
       };
     }
 
