@@ -1,7 +1,7 @@
 import { ApiPromise, WsProvider } from "@polkadot/api";
 import { web3Accounts, web3Enable, web3FromAddress } from "@polkadot/extension-dapp";
 import { encodeAddress, cryptoWaitReady, encodeMultiAddress } from "@polkadot/util-crypto";
-import { u8aToHex } from '@polkadot/util';
+import { stringToHex, u8aToHex } from '@polkadot/util';
 import { ALICE, APP_NAME, BALANCE, BOB, KUSAMA_PROVIDER, PASEO_PROVIDER, SS58_FORMAT, THRESHOLD } from "./constants";
 import { AddressOrPair } from "@polkadot/api/types";
 import { Chain, ReferendumId } from "./types";
@@ -31,8 +31,8 @@ export async function createAndSign(
 
     /* Mimir Configuration */
     const config = {
-        clientGateway: 'https://mimir-client.mimir.global', // Replace with actual API endpoint
-        chain: 'polkadot'
+        clientGateway: 'http://mimir-client.mimir.global', // Replace with actual API endpoint
+        chain: 'kusama'
     };
     /** */
 
@@ -67,7 +67,7 @@ export async function createAndSign(
 
     const signature = await injector.signer.signRaw({
         address: senderAddress,
-        data: u8aToHex(Buffer.from(message, 'utf-8')),
+        data: stringToHex((message)), // would be good if this is just message
         type: 'bytes'
     });
     const signatureHex = signature.signature;
@@ -97,36 +97,5 @@ export async function createAndSign(
     } catch (error) {
         console.error('Failed to upload transaction: ', error);
         throw error;
-    }
-}
-
-async function findTxBlock(api: ApiPromise, txHash: string, maxRetries = 150, interval = 100) {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        console.log(`🔄 Attempt ${attempt}/${maxRetries}: Checking for transaction...`);
-
-        // Get the latest block
-        const latestHeader = await api.rpc.chain.getHeader();
-        const latestBlockHash = await api.rpc.chain.getBlockHash(latestHeader.number.toBigInt());
-        const signedBlock = await api.rpc.chain.getBlock(latestBlockHash);
-        const blockNumber = latestHeader.number.toNumber();
-
-        // Get all events for this block
-        await api.query.system.events.at(latestBlockHash);
-
-        for (let index = 0; index < signedBlock.block.extrinsics.length; index++) {
-            const extrinsic = signedBlock.block.extrinsics[index];
-
-            if (extrinsic.hash.toHex() === txHash) {
-                console.log(`✅ Transaction found in block #${blockNumber}, index: ${index}`);
-                return { blockNumber, index };
-            }
-        }
-
-        if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, interval)); // Wait before retrying
-        } else {
-            console.log(`❌ Transaction not found after ${maxRetries} attempts.`);
-            return null;
-        }
     }
 }
