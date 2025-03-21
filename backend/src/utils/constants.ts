@@ -1,6 +1,7 @@
-export const SS58_FORMAT = 0;
+export const POLKADOT_SS58_FORMAT = 0;
+export const KUSAMA_SS58_FORMAT = 2;
 
-export const PRIVATE_KEY = process.env.PRIVATE_KEY as string;
+export const MNEMONIC = process.env.PROPOSER_MNEMONIC as string;
 
 export const PASEO_PROVIDER = 'wss://paseo.rpc.amforc.com';
 export const KUSAMA_PROVIDER = 'wss://kusama-rpc.polkadot.io';

@@ -1,7 +1,7 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { cryptoWaitReady, encodeAddress, encodeMultiAddress } from "@polkadot/util-crypto";
 import { stringToHex } from '@polkadot/util';
-import { BALANCE, KUSAMA_PROVIDER, MIMIR_URL, PRIVATE_KEY, SS58_FORMAT, THRESHOLD } from "../utils/constants";
+import { BALANCE, KUSAMA_PROVIDER, KUSAMA_SS58_FORMAT, MIMIR_URL, MNEMONIC, POLKADOT_SS58_FORMAT, THRESHOLD } from "../utils/constants";
 import { Chain, ReferendumId } from "../types/properties";
 /**
  * Sends transaction to Mimir, where it can be batched with other transactions, then signed.  
@@ -19,58 +19,65 @@ export async function proposeVoteTransaction(
     vote: boolean,
     conviction: number = 1,
 ): Promise<void> {
-    await cryptoWaitReady();
-
-    const wsProvider = new WsProvider(KUSAMA_PROVIDER);
-    const api = await ApiPromise.create({ provider: wsProvider });
-    const keyring = new Keyring({ type: "sr25519" });
-    const sender = keyring.addFromUri(PRIVATE_KEY, {}, "sr25519");
-    const senderAddress = encodeAddress(sender.address, SS58_FORMAT);
-
-    // Create multisig address
-    const multisigAddress = encodeMultiAddress(
-        multisig,
-        THRESHOLD,
-    );
-
-    // Prepare request payload
-    const call = api.tx.convictionVoting.vote(
-        id,
-        { Standard: {
-            vote: { 
-                aye: vote, 
-                conviction: conviction
-            },
-            balance: BALANCE
-        }}
-    ).method;
-    const callHex = call.toHex();
-
-    const payload = {
-        calldata: callHex,
-        timestamp: Date.now()
-    }
-
-    // Create signature using backend-side Polkadot code
-    const message = [
-        'Sign for mimir batch\n',
-        `Call Data: ${payload.calldata}\n`,
-        `Address: ${multisigAddress}\n`,
-        `Timestamp: ${payload.timestamp}`
-    ].join('');
-
-    const signature = sender.sign(stringToHex(message));
-    const signatureHex = `0x${Buffer.from(signature).toString('hex')}`;
-
-    // Prepare final request
-    const request = {
-        ...payload,
-        signature: signatureHex,
-        signer: senderAddress
-    };
-
-    // Send request
     try {
+        if (!MNEMONIC) throw "Please specify MNEMONIC in .env!";
+        if (!multisig) throw "Please specify MULTISIG in .env!";
+  network = Chain.Kusama; // !!
+        await cryptoWaitReady();
+
+        let ss58Format = POLKADOT_SS58_FORMAT;
+        if (network === Chain.Kusama) ss58Format = KUSAMA_SS58_FORMAT;
+
+        const wsProvider = new WsProvider(KUSAMA_PROVIDER);
+        const api = await ApiPromise.create({ provider: wsProvider });
+        const keyring = new Keyring({ type: "sr25519" });
+        const sender = keyring.addFromMnemonic(MNEMONIC);
+        console.log('ss58: ', ss58Format);
+        const senderAddress = encodeAddress(sender.address, ss58Format);
+        console.log('Sender address: ', senderAddress);
+
+        // Create multisig address
+        const multisigAddress = encodeMultiAddress(
+            multisig,
+            THRESHOLD,
+        );
+
+        // Prepare request payload
+        const call = api.tx.convictionVoting.vote(
+            id,
+            { Standard: {
+                vote: { 
+                    aye: vote, 
+                    conviction: conviction
+                },
+                balance: BALANCE
+            }}
+        ).method;
+        const callHex = call.toHex();
+
+        const payload = {
+            calldata: callHex,
+            timestamp: Date.now()
+        }
+
+        // Create signature using backend-side Polkadot code
+        const message = [
+            'Sign for mimir batch\n',
+            `Call Data: ${payload.calldata}\n`,
+            `Address: ${multisigAddress}\n`,
+            `Timestamp: ${payload.timestamp}`
+        ].join('');
+
+        const signature = sender.sign(stringToHex(message));
+        const signatureHex = `0x${Buffer.from(signature).toString('hex')}`;
+
+        // Prepare final request
+        const request = {
+            ...payload,
+            signature: signatureHex,
+            signer: senderAddress
+        };
+
         const chain = network.toLowerCase();
 
         const response = await fetch(
