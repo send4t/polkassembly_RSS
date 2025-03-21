@@ -37,7 +37,7 @@ export interface NotionProperties {
         title?: Array<{ text: { content: string } }>;
         rich_text?: Array<{ text: { content: string } }>;
         number?: number;
-        select?: { name: string, options: {
+        select?: { name: string, options?: {
             name: string;
             id: string;
             color: string;

@@ -4,6 +4,8 @@ const dotenv = require('dotenv');
 dotenv.config();
 if (!process.env.REFRESH_INTERVAL) throw "Please specify REFRESH_INTERVAL in .env!";
 import { refreshReferendas } from './refresh';
+import { sendReadyProposalsToMimir } from './mimir/refreshEndpoint';
+import { SUCCESS_PAGE } from './utils/constants';
 
 
 const app = express();
@@ -11,8 +13,13 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.get('/', (req: Request, res: Response ) => {
-    res.send('Hello, world! The app is running.');
+app.get('/send-to-mimir', async (req: Request, res: Response) => {
+    try {
+        await sendReadyProposalsToMimir();
+        res.send(SUCCESS_PAGE);
+    } catch (error) {
+        res.status(500).send('Error sending referendas to Mimir: ' + (error as any).message);
+    }
 });
 
 
