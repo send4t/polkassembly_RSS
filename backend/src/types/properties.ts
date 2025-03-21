@@ -65,3 +65,5 @@ export enum Origin {
 export type Link = string;
 
 export type VotingTime = string;
+
+export type ReferendumId = number;

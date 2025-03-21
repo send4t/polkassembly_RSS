@@ -12,6 +12,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@polkadot/api": "^15.8.1",
+    "@polkadot/extension-dapp": "^0.58.5",
     "axios": "^1.7.7",
     "axios-retry": "^4.5.0",
     "body-parser": "^1.20.3",
