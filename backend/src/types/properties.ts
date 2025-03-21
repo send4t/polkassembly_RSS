@@ -15,14 +15,16 @@ export enum TimelineStatus {
     Rejected = "Rejected"
 }
 
-export enum VoteStatus {
+export enum InternalStatus {
     NotStarted = "Not started",
     Considering = "Considering",
-    Debating = "Debating",
-    Waiting = "Waiting",
+    ReadyForApproval = "Ready for approval",
+    WaitingForAgreement = "Waiting for agreement",
+    ReadyToVote = "Ready to vote",
+    Reconsidering = "Reconsidering",
     VotedAye = "Voted 👍 Aye 👍",
-    VotedAbstain = "Voted ✌️ Abstain ✌️",
     VotedNay = "Voted 👎 Nay 👎",
+    VotedAbstain = "Voted ✌️ Abstain ✌️",
     NotVoted = "Not Voted"
 }
 

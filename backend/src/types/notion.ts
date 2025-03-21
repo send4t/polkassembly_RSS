@@ -1,4 +1,4 @@
-import { Chain, Link, Origin, TimelineStatus, VoteStatus, VotingTime } from "./properties";
+import { Chain, Link, Origin, TimelineStatus, InternalStatus, VotingTime } from "./properties";
 
 export type NotionDatabaseId = string;
 export type NotionPageId = string;
@@ -10,7 +10,7 @@ export interface CreateReferendumInput {
     chain?: Chain;
     origin?: Origin;
     referendumTimeline?: TimelineStatus;
-    internalStatus?: VoteStatus;
+    internalStatus?: InternalStatus;
     link?: Link;
     voting?: VotingTime;
     created_at?: string;
