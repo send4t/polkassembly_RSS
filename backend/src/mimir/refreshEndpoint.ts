@@ -3,6 +3,7 @@ import { handleReferendaVote } from "./handleReferenda";
 
 export async function sendReadyProposalsToMimir(): Promise<void> {
     try {
+        console.info("Sending ReadyToVote proposals to Mimir ...");
         const pages = await getNotionPages();
         const mimirPromises = [];
 

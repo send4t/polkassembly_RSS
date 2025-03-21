@@ -16,7 +16,7 @@ export async function handleReferendaVote(page: NotionPage, network: Chain, post
     //console.log("Internal status: ", page.properties?.['Internal status'].status?.name);
     if (page.properties?.['Internal status'].status?.name === InternalStatus.ReadyToVote) {
         console.info("This proposal is in ReadyToVote status.");
-        switch (page.properties?.['Suggested vote'].select?.options?.name) {
+        switch (page.properties?.['Suggested vote'].select?.name) {
             case SuggestedVote.Aye:
                 console.info("Sending transaction to Mimir (Aye) ...");
                 await proposeVoteTransaction(multisig, network, postId, true, 1);
@@ -30,7 +30,7 @@ export async function handleReferendaVote(page: NotionPage, network: Chain, post
                 break;
             default:
                 console.error("No suggested vote found.");
-                console.error("Suggested vote field is: ", page.properties?.['Suggested vote'].select?.options?.name);
+                console.error("Suggested vote field is: ", page.properties?.['Suggested vote'].select?.name);
         }
     }
 }

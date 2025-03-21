@@ -29,9 +29,9 @@ export enum InternalStatus {
 }
 
 export enum SuggestedVote {
-    Aye = "Aye",
-    Nay = "Nay",
-    Abstain = "Abstain"
+    Aye = "👍 Aye 👍",
+    Nay = "👎 Nay 👎",
+    Abstain = "✌️ Abstain ✌️"
 }
 
 export enum Origin {
