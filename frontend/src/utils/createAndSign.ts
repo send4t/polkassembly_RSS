@@ -2,7 +2,7 @@ import { ApiPromise, WsProvider } from "@polkadot/api";
 import { web3Accounts, web3Enable, web3FromAddress } from "@polkadot/extension-dapp";
 import { encodeAddress, cryptoWaitReady, encodeMultiAddress } from "@polkadot/util-crypto";
 import { stringToHex, u8aToHex } from '@polkadot/util';
-import { ALICE, APP_NAME, BALANCE, BOB, KUSAMA_PROVIDER, PASEO_PROVIDER, SS58_FORMAT, THRESHOLD } from "./constants";
+import { ALICE, APP_NAME, BALANCE, BOB, CHARLOTTE, KUSAMA_PROVIDER, PASEO_PROVIDER, SS58_FORMAT, THRESHOLD } from "./constants";
 import { AddressOrPair } from "@polkadot/api/types";
 import { Chain, ReferendumId } from "./types";
 
@@ -22,7 +22,6 @@ export async function createAndSign(
 
     const wsProvider = new WsProvider(KUSAMA_PROVIDER);
     const api = await ApiPromise.create({ provider: wsProvider });
-    //api.consts.system.ss58Prefix.toHuman()
     const senderAddress = encodeAddress(account.address, SS58_FORMAT);
     const injector = await web3FromAddress(senderAddress);
     if (!injector || !injector.signer || !injector.signer.signRaw) {
@@ -31,14 +30,14 @@ export async function createAndSign(
 
     /* Mimir Configuration */
     const config = {
-        clientGateway: 'http://mimir-client.mimir.global', // Replace with actual API endpoint
+        clientGateway: 'https://mimir-client.mimir.global', // Replace with actual API endpoint
         chain: 'kusama'
     };
     /** */
 
     // Create multisig address
     const multisigAddress = encodeMultiAddress(
-        [ALICE, BOB],
+        [ALICE, BOB, CHARLOTTE],
         THRESHOLD,
     );
 
@@ -49,7 +48,7 @@ export async function createAndSign(
             vote: { aye: vote, conviction: 1 },
             balance: BALANCE
         }}
-    );
+    ).method;
     const callHex = call.toHex();
 
     const payload = {
@@ -67,7 +66,7 @@ export async function createAndSign(
 
     const signature = await injector.signer.signRaw({
         address: senderAddress,
-        data: stringToHex((message)), // would be good if this is just message
+        data: stringToHex(message), // would be good if this is just message
         type: 'bytes'
     });
     const signatureHex = signature.signature;
@@ -93,6 +92,7 @@ export async function createAndSign(
         );
       
         const result = await response.json();
+        console.log('Transaction result: ', result);
         return result;
     } catch (error) {
         console.error('Failed to upload transaction: ', error);
