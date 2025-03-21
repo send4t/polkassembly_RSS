@@ -1,12 +1,13 @@
-import { Chain } from "./types/properties";
+import { Chain, InternalStatus, SuggestedVote } from "./types/properties";
 import { createReferenda } from "./notion/create";
 import { fetchDataFromAPI } from "./polkAssembly/fetchReferendas";
 import { findNotionPageByPostId, getNotionPages } from "./notion/findNotionPage";
 import { fetchDotToUsdRate, fetchKusToUsdRate } from "./utils/utils";
 import { updateReferenda } from "./notion/update";
+import { proposeVoteTransaction } from "./mimir/proposeVote";
 
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
-
+const multisig = process.env.MULTISIG?.split(",") || [];
 
 export async function refreshReferendas() {
     try {
@@ -33,6 +34,24 @@ export async function refreshReferendas() {
 
             if (found) {
                 console.log(`Proposal ${referenda.post_id} found in Notion.`);
+
+                if (found.properties?.['Internal status'].status?.name === InternalStatus.NotStarted) {
+                    console.log("This proposal is ready to vote. Sending transaction to Mimir...");
+                    switch (found.properties?.['Suggested vote'].select?.options.name) {
+                        case SuggestedVote.Aye:
+                            await proposeVoteTransaction(multisig, referenda.network, referenda.post_id, true, 1);
+                            break;
+                        case SuggestedVote.Nay:
+                            await proposeVoteTransaction(multisig, referenda.network, referenda.post_id, false, 1);
+                            break;
+                        case SuggestedVote.Abstain:
+                            await proposeVoteTransaction(multisig, referenda.network, referenda.post_id, true, 1);
+                            break;
+                        default:
+                            console.error("No suggested vote found.");
+                    }
+                }
+
                 try {
                     await updateReferenda(found.id, referenda, exchangeRate, referenda.network);
                 } catch (error) {

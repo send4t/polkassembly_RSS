@@ -28,6 +28,12 @@ export enum InternalStatus {
     NotVoted = "Not Voted"
 }
 
+export enum SuggestedVote {
+    Aye = "Aye",
+    Nay = "Nay",
+    Abstain = "Abstain"
+}
+
 export enum Origin {
     // Numbered origins
     Root0 = "0 - Root",

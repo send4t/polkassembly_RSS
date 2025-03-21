@@ -1,13 +1,9 @@
-import { ApiPromise, WsProvider } from "@polkadot/api";
-import { web3Accounts, web3Enable, web3FromAddress } from "@polkadot/extension-dapp";
-import { encodeAddress, encodeMultiAddress } from "@polkadot/util-crypto";
+import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
+import { cryptoWaitReady, encodeAddress, encodeMultiAddress } from "@polkadot/util-crypto";
 import { stringToHex } from '@polkadot/util';
-import { ALICE, APP_NAME, BALANCE, BOB, CHARLOTTE, KUSAMA_PROVIDER, MIMIR_URL, SS58_FORMAT, THRESHOLD } from "../utils/constants";
-import { AddressOrPair } from "@polkadot/api/types";
+import { BALANCE, KUSAMA_PROVIDER, MIMIR_URL, PRIVATE_KEY, SS58_FORMAT, THRESHOLD } from "../utils/constants";
 import { Chain, ReferendumId } from "../types/properties";
-
-
-/** 
+/**
  * Sends transaction to Mimir, where it can be batched with other transactions, then signed.  
  * The transaction should be created by a [Proposer](https://docs.mimir.global/advanced/proposer). 
  * @param multisig - Array of addresses that are part of the multisig.
@@ -17,29 +13,23 @@ import { Chain, ReferendumId } from "../types/properties";
  * @param conviction - Conviction value for the vote. Default is 1.
  */
 export async function proposeVoteTransaction(
-    multisig: AddressOrPair[], 
+    multisig: string[], 
     network: Chain, 
     id: ReferendumId,
     vote: boolean,
     conviction: number = 1,
 ): Promise<void> {
-    await web3Enable(APP_NAME);
-
-    // Get accounts from Talisman wallet
-    const accounts = await web3Accounts();
-    const account = accounts[0];
+    await cryptoWaitReady();
 
     const wsProvider = new WsProvider(KUSAMA_PROVIDER);
     const api = await ApiPromise.create({ provider: wsProvider });
-    const senderAddress = encodeAddress(account.address, SS58_FORMAT);
-    const injector = await web3FromAddress(senderAddress);
-    if (!injector || !injector.signer || !injector.signer.signRaw) {
-        throw new Error('Unable to create injector');
-    }
+    const keyring = new Keyring({ type: "sr25519" });
+    const sender = keyring.addFromUri(PRIVATE_KEY, {}, "sr25519");
+    const senderAddress = encodeAddress(sender.address, SS58_FORMAT);
 
     // Create multisig address
     const multisigAddress = encodeMultiAddress(
-        [ALICE, BOB, CHARLOTTE],
+        multisig,
         THRESHOLD,
     );
 
@@ -61,7 +51,7 @@ export async function proposeVoteTransaction(
         timestamp: Date.now()
     }
 
-    // Create signature
+    // Create signature using backend-side Polkadot code
     const message = [
         'Sign for mimir batch\n',
         `Call Data: ${payload.calldata}\n`,
@@ -69,12 +59,8 @@ export async function proposeVoteTransaction(
         `Timestamp: ${payload.timestamp}`
     ].join('');
 
-    const signature = await injector.signer.signRaw({
-        address: senderAddress,
-        data: stringToHex(message), // would be good if this is just message
-        type: 'bytes'
-    });
-    const signatureHex = signature.signature;
+    const signature = sender.sign(stringToHex(message));
+    const signatureHex = `0x${Buffer.from(signature).toString('hex')}`;
 
     // Prepare final request
     const request = {
