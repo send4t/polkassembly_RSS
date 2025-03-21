@@ -1,14 +1,12 @@
-import { Chain, InternalStatus, SuggestedVote } from "./types/properties";
+import { Chain } from "./types/properties";
 import { createReferenda } from "./notion/create";
 import { fetchDataFromAPI } from "./polkAssembly/fetchReferendas";
 import { findNotionPageByPostId, getNotionPages } from "./notion/findNotionPage";
 import { fetchDotToUsdRate, fetchKusToUsdRate } from "./utils/utils";
 import { updateReferenda } from "./notion/update";
-import { proposeVoteTransaction } from "./mimir/proposeVote";
 import { handleReferendaVote } from "./mimir/handleReferenda";
 
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
-const multisig = process.env.MULTISIG?.split(",") || [];
 
 export async function refreshReferendas() {
     try {
@@ -37,7 +35,7 @@ export async function refreshReferendas() {
                 console.log(`Proposal ${referenda.post_id} found in Notion.`);
 
                 // Send transaction to Mimir, if the proposal is ReadyToVote
-                await handleReferendaVote(found, referenda, multisig);
+                await handleReferendaVote(found, referenda);
 
                 try {
                     await updateReferenda(found.id, referenda, exchangeRate, referenda.network);

@@ -1,11 +1,18 @@
 import { NotionPage } from "../types/notion";
 import { PolkassemblyReferenda } from "../types/polkassemly";
-import { InternalStatus, ReferendumId, SuggestedVote } from "../types/properties";
+import { Chain, InternalStatus, ReferendumId, SuggestedVote } from "../types/properties";
 import { proposeVoteTransaction } from "./proposeVote";
 
 /** Decides whether to send transaction to Mimir with true or false value, abstain will not send transaction. */
-export async function handleReferendaVote(page: NotionPage, referenda: PolkassemblyReferenda, multisig: string[]): Promise<void> {
-    await proposeVoteTransaction(multisig, referenda.network, referenda.post_id, true, 1); return;
+export async function handleReferendaVote(page: NotionPage, referenda: PolkassemblyReferenda): Promise<void> {
+    let multisig: string[] = [];
+    if (referenda.network === Chain.Polkadot) {
+        multisig = process.env.POLKADOT_MULTISIG?.split(",") || [];
+    }
+    if (referenda.network === Chain.Kusama) {
+        multisig = process.env.KUSAMA_MULTISIG?.split(",") || [];
+    }
+
     if (page.properties?.['Internal status'].status?.name === InternalStatus.ReadyToVote) {
         console.info("This proposal is in ReadyToVote status.");
         switch (page.properties?.['Suggested vote'].select?.options.name) {

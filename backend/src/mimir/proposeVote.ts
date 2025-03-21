@@ -3,6 +3,8 @@ import { cryptoWaitReady, encodeAddress, encodeMultiAddress } from "@polkadot/ut
 import { stringToHex } from '@polkadot/util';
 import { BALANCE, KUSAMA_PROVIDER, KUSAMA_SS58_FORMAT, MIMIR_URL, MNEMONIC, POLKADOT_SS58_FORMAT, THRESHOLD } from "../utils/constants";
 import { Chain, ReferendumId } from "../types/properties";
+
+
 /**
  * Sends transaction to Mimir, where it can be batched with other transactions, then signed.  
  * The transaction should be created by a [Proposer](https://docs.mimir.global/advanced/proposer). 
@@ -21,8 +23,8 @@ export async function proposeVoteTransaction(
 ): Promise<void> {
     try {
         if (!MNEMONIC) throw "Please specify MNEMONIC in .env!";
-        if (!multisig) throw "Please specify MULTISIG in .env!";
-  network = Chain.Kusama; // !!
+        if (!multisig) throw "Please specify POLKADOT_MULTISIG and/or KUSAMA_MULTISIG in .env!";
+
         await cryptoWaitReady();
 
         let ss58Format = POLKADOT_SS58_FORMAT;
@@ -32,11 +34,8 @@ export async function proposeVoteTransaction(
         const api = await ApiPromise.create({ provider: wsProvider });
         const keyring = new Keyring({ type: "sr25519" });
         const sender = keyring.addFromMnemonic(MNEMONIC);
-        console.log('ss58: ', ss58Format);
         const senderAddress = encodeAddress(sender.address, ss58Format);
-        console.log('Sender address: ', senderAddress);
 
-        // Create multisig address
         const multisigAddress = encodeMultiAddress(
             multisig,
             THRESHOLD,
@@ -60,7 +59,6 @@ export async function proposeVoteTransaction(
             timestamp: Date.now()
         }
 
-        // Create signature using backend-side Polkadot code
         const message = [
             'Sign for mimir batch\n',
             `Call Data: ${payload.calldata}\n`,
@@ -71,7 +69,6 @@ export async function proposeVoteTransaction(
         const signature = sender.sign(stringToHex(message));
         const signatureHex = `0x${Buffer.from(signature).toString('hex')}`;
 
-        // Prepare final request
         const request = {
             ...payload,
             signature: signatureHex,
@@ -94,6 +91,7 @@ export async function proposeVoteTransaction(
         const result = await response.json();
         console.log('Transaction result: ', result);
         return result;
+
     } catch (error) {
         console.error('Failed to upload transaction: ', error);
         throw error;
