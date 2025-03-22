@@ -40,6 +40,7 @@ export async function proposeVoteTransaction(
             multisig,
             THRESHOLD,
         );
+        console.log('Multisig address: ', multisigAddress);
 
         // Prepare request payload
         const call = api.tx.convictionVoting.vote(

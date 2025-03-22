@@ -8,7 +8,7 @@ export const KUSAMA_PROVIDER = 'wss://kusama-rpc.polkadot.io';
 
 export const BALANCE = 1000000000;
 
-export const THRESHOLD = 2;
+export const THRESHOLD = process.env.THRESHOLD as unknown as number;
 
 export const MIMIR_URL = 'https://mimir-client.mimir.global';
 
