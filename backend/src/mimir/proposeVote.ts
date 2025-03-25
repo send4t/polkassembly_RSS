@@ -19,7 +19,6 @@ export async function proposeVoteTransaction(
     network: Chain, 
     id: ReferendumId,
     vote: SuggestedVote,
-    conviction: number = 1,
 ): Promise<void> {
     try {
         if (!MNEMONIC) throw "Please specify MNEMONIC in .env!";
@@ -89,12 +88,12 @@ export async function proposeVoteTransaction(
       
         const result = await response.json();
         console.log('Transaction result: ', result);
+        wsProvider.disconnect();
+
         return result;
 
     } catch (error) {
         console.error('Failed to upload transaction: ', error);
         throw error;
-    } finally {
-        wsProvider.disconnect(); // TODO
     }
 }

@@ -19,14 +19,15 @@ export async function handleReferendaVote(page: NotionPage, network: Chain, post
         switch (page.properties?.['Suggested vote'].select?.name) {
             case SuggestedVote.Aye:
                 console.info("Sending transaction to Mimir (Aye) ...");
-                await proposeVoteTransaction(multisig, network, postId, true, 1);
+                await proposeVoteTransaction(multisig, network, postId, SuggestedVote.Aye);
                 break;
             case SuggestedVote.Nay:
                 console.info("Sending transaction to Mimir (Nay) ...");
-                await proposeVoteTransaction(multisig, network, postId, false, 1);
+                await proposeVoteTransaction(multisig, network, postId, SuggestedVote.Nay);
                 break;
             case SuggestedVote.Abstain:
-                console.info("Abstain, not sending transaction to Mimir.");
+                console.info("Sending transaction to Mimir (Abstain) ...");
+                await proposeVoteTransaction(multisig, network, postId, SuggestedVote.Abstain);
                 break;
             default:
                 console.error("No suggested vote found.");
