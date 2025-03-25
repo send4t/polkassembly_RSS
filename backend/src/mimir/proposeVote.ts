@@ -2,7 +2,7 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { cryptoWaitReady, encodeAddress, encodeMultiAddress } from "@polkadot/util-crypto";
 import { stringToHex } from '@polkadot/util';
 import { BALANCE, KUSAMA_PROVIDER, KUSAMA_SS58_FORMAT, MIMIR_URL, MNEMONIC, POLKADOT_SS58_FORMAT, THRESHOLD } from "../utils/constants";
-import { Chain, ReferendumId } from "../types/properties";
+import { Chain, ReferendumId, SuggestedVote } from "../types/properties";
 
 
 /**
@@ -18,7 +18,7 @@ export async function proposeVoteTransaction(
     multisig: string[], 
     network: Chain, 
     id: ReferendumId,
-    vote: boolean,
+    vote: SuggestedVote,
     conviction: number = 1,
 ): Promise<void> {
     try {
@@ -45,12 +45,10 @@ export async function proposeVoteTransaction(
         // Prepare request payload
         const call = api.tx.convictionVoting.vote(
             id,
-            { Standard: {
-                vote: { 
-                    aye: vote, 
-                    conviction: conviction
-                },
-                balance: BALANCE
+            { Split: {
+                aye: vote === SuggestedVote.Aye ? BALANCE : 0, 
+                nay: vote === SuggestedVote.Nay ? BALANCE : 0,
+                abstain: vote === SuggestedVote.Abstain ? BALANCE : 0,
             }}
         ).method;
         const callHex = call.toHex();
@@ -96,5 +94,7 @@ export async function proposeVoteTransaction(
     } catch (error) {
         console.error('Failed to upload transaction: ', error);
         throw error;
+    } finally {
+        wsProvider.disconnect(); // TODO
     }
 }
