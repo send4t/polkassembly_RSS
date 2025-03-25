@@ -15,10 +15,11 @@ import { Chain, ReferendumId, SuggestedVote } from "../types/properties";
  * @param conviction - Conviction value for the vote. Default is 1.
  */
 export async function proposeVoteTransaction(
-    multisig: string[], 
+    multisig: string, 
     network: Chain, 
     id: ReferendumId,
     vote: SuggestedVote,
+    conviction: number = 1,
 ): Promise<void> {
     try {
         if (!MNEMONIC) throw "Please specify MNEMONIC in .env!";
@@ -35,21 +36,32 @@ export async function proposeVoteTransaction(
         const sender = keyring.addFromMnemonic(MNEMONIC);
         const senderAddress = encodeAddress(sender.address, ss58Format);
 
-        const multisigAddress = encodeMultiAddress(
-            multisig,
-            THRESHOLD,
-        );
-        console.log('Multisig address: ', multisigAddress);
+        console.log('Multisig address: ', multisig);
 
         // Prepare request payload
-        const call = api.tx.convictionVoting.vote(
-            id,
-            { Split: {
-                aye: vote === SuggestedVote.Aye ? BALANCE : 0, 
-                nay: vote === SuggestedVote.Nay ? BALANCE : 0,
-                abstain: vote === SuggestedVote.Abstain ? BALANCE : 0,
-            }}
-        ).method;
+        let call;
+        if (vote === SuggestedVote.Abstain) {
+            call = api.tx.convictionVoting.vote(
+                id,
+                { Split: {
+                    aye: 0, 
+                    nay: 0,
+                    abstain: BALANCE,
+                }}
+            ).method;
+        } else {
+            call = api.tx.convictionVoting.vote(
+                id,
+                { Standard: {
+                    vote: { 
+                        aye: vote === SuggestedVote.Aye, 
+                        conviction: conviction
+                    },
+                    balance: BALANCE
+                }}
+            ).method;
+        }
+        
         const callHex = call.toHex();
 
         const payload = {
@@ -60,7 +72,7 @@ export async function proposeVoteTransaction(
         const message = [
             'Sign for mimir batch\n',
             `Call Data: ${payload.calldata}\n`,
-            `Address: ${multisigAddress}\n`,
+            `Address: ${multisig}\n`,
             `Timestamp: ${payload.timestamp}`
         ].join('');
 
@@ -76,7 +88,7 @@ export async function proposeVoteTransaction(
         const chain = network.toLowerCase();
 
         const response = await fetch(
-            `${MIMIR_URL}/v1/chains/${chain}/${multisigAddress}/transactions/batch`,
+            `${MIMIR_URL}/v1/chains/${chain}/${multisig}/transactions/batch`,
             {
               method: 'POST',
               headers: {
@@ -86,10 +98,11 @@ export async function proposeVoteTransaction(
             }
         );
       
-        const result = await response.json();
-        console.log('Transaction result: ', result);
         wsProvider.disconnect();
 
+        const result = await response.json();
+        console.log('Transaction result: ', result);
+        
         return result;
 
     } catch (error) {

@@ -5,12 +5,12 @@ import { proposeVoteTransaction } from "./proposeVote";
 
 /** Decides whether to send transaction to Mimir with true or false value, abstain will not send transaction. */
 export async function handleReferendaVote(page: NotionPage, network: Chain, postId: ReferendumId): Promise<void> {
-    let multisig: string[] = [];
+    let multisig: string = "";
     if (network === Chain.Polkadot) {
-        multisig = process.env.POLKADOT_MULTISIG?.split(",") || [];
+        multisig = process.env.POLKADOT_MULTISIG || "";
     }
     if (network === Chain.Kusama) {
-        multisig = process.env.KUSAMA_MULTISIG?.split(",") || [];
+        multisig = process.env.KUSAMA_MULTISIG || "";
     }
 
     //console.log("Internal status: ", page.properties?.['Internal status'].status?.name);
