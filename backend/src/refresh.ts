@@ -33,10 +33,6 @@ export async function refreshReferendas() {
 
             if (found) {
                 console.log(`Proposal ${referenda.post_id} found in Notion.`);
-
-                // Send transaction to Mimir, if the proposal is ReadyToVote
-                await handleReferendaVote(found, referenda.network, referenda.post_id);
-
                 try {
                     await updateReferenda(found.id, referenda, exchangeRate, referenda.network);
                 } catch (error) {
