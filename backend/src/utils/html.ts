@@ -30,9 +30,12 @@ export function convertHtmlToNotionBlocks(html: string) {
         rich_text: [
           {
             type: "text",
-            text: { content: " " },
+            text: { content: "Details" },
           },
         ],
+        icon: {
+          emoji: "",
+        },
         color: "gray_background",
         children: [] as any[],
       },
