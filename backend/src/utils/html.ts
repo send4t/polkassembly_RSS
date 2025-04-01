@@ -30,7 +30,7 @@ export function convertHtmlToNotionBlocks(html: string) {
         rich_text: [
           {
             type: "text",
-            text: { content: " " },
+            text: { content: "" },
           },
         ],
         color: "gray_background",
