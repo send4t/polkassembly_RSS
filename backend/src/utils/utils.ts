@@ -1,5 +1,6 @@
 import { Chain, Origin, TimelineStatus } from "../types/properties";
 
+
 export function getValidatedOrigin(origin: string | undefined): Origin {
     if (!origin) return  Origin.NoOriginInformationAvailable;
 
@@ -84,4 +85,20 @@ function assetIdToTicker(assetId: string): string {
 
 export async function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export async function waitUntilStartMinute(): Promise<void> {
+    const startMinute = process.env.START_MINUTE ? parseInt(process.env.START_MINUTE, 10) : 0;
+    const now = new Date();
+    const currentMinute = now.getMinutes();
+    
+    let waitTime = 0;
+    
+    if (currentMinute !== startMinute) {
+        waitTime = ((startMinute - currentMinute + 60) % 60) * 60 * 1000; // Convert to milliseconds
+        console.log(`Waiting ${waitTime / 1000} seconds until START_MINUTE (${startMinute})`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+
+    console.log(`Reached START_MINUTE: ${startMinute}, proceeding...`);
 }

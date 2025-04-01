@@ -15,15 +15,23 @@ export enum TimelineStatus {
     Rejected = "Rejected"
 }
 
-export enum VoteStatus {
+export enum InternalStatus {
     NotStarted = "Not started",
     Considering = "Considering",
-    Debating = "Debating",
-    Waiting = "Waiting",
+    ReadyForApproval = "Ready for approval",
+    WaitingForAgreement = "Waiting for agreement",
+    ReadyToVote = "Ready to vote",
+    Reconsidering = "Reconsidering",
     VotedAye = "Voted 👍 Aye 👍",
-    VotedAbstain = "Voted ✌️ Abstain ✌️",
     VotedNay = "Voted 👎 Nay 👎",
+    VotedAbstain = "Voted ✌️ Abstain ✌️",
     NotVoted = "Not Voted"
+}
+
+export enum SuggestedVote {
+    Aye = "👍 Aye 👍",
+    Nay = "👎 Nay 👎",
+    Abstain = "✌️ Abstain ✌️"
 }
 
 export enum Origin {
@@ -65,3 +73,5 @@ export enum Origin {
 export type Link = string;
 
 export type VotingTime = string;
+
+export type ReferendumId = number;

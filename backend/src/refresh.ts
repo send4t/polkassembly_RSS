@@ -4,9 +4,9 @@ import { fetchDataFromAPI } from "./polkAssembly/fetchReferendas";
 import { findNotionPageByPostId, getNotionPages } from "./notion/findNotionPage";
 import { fetchDotToUsdRate, fetchKusToUsdRate } from "./utils/utils";
 import { updateReferenda } from "./notion/update";
+import { handleReferendaVote } from "./mimir/handleReferenda";
 
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
-
 
 export async function refreshReferendas() {
     try {
