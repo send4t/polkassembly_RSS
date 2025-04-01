@@ -10,8 +10,6 @@ export async function sendReadyProposalsToMimir(): Promise<void> {
     for (const page of pages) {
       const network = page.properties?.["Chain"].select?.name;
       const postId = page.properties?.["Number"].title[0].text.content;
-      //console.log("Network: ", network);
-      //console.log("Post ID: ", postId);
 
       const promise = handleReferendaVote(page, network, postId);
       mimirPromises.push(promise);
