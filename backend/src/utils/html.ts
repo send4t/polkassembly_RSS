@@ -34,7 +34,7 @@ export function convertHtmlToNotionBlocks(html: string) {
           },
         ],
         icon: {
-          emoji: "",
+          emoji: "📝",
         },
         color: "gray_background",
         children: [] as any[],
