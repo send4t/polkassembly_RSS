@@ -5,52 +5,75 @@ export function convertHtmlToNotionBlocks(html: string) {
   const dom = new JSDOM(html);
   const document = dom.window.document;
 
-  // Create a single toggle block that will contain all content
-  const mainBlock = {
-    object: "block",
-    type: "toggle",
-    toggle: {
-      rich_text: [
-        {
-          type: "text",
-          text: { content: "Content" },
-        },
-      ],
-      children: [] as any[],
+  // Create blocks array starting with a header
+  const blocks = [
+    {
+      object: "block",
+      type: "heading_2",
+      heading_2: {
+        rich_text: [
+          {
+            type: "text",
+            text: { content: "Content" },
+            annotations: {
+              bold: true,
+              color: "blue",
+            },
+          },
+        ],
+      },
     },
-  };
+    {
+      object: "block",
+      type: "callout",
+      callout: {
+        rich_text: [
+          {
+            type: "text",
+            text: { content: "" },
+          },
+        ],
+        icon: {
+          emoji: "📝",
+        },
+        color: "gray_background",
+        children: [] as any[],
+      },
+    },
+  ];
 
+  // Process nodes into the callout's children array
   document.body.childNodes.forEach((node) => {
     if (node.nodeType === 3 && node.textContent?.trim()) {
       // Text Node
-      mainBlock.toggle.children.push(
+      blocks[1].callout?.children.push(
         createParagraphBlock(node.textContent.trim())
       );
     } else if (node.nodeType === 1) {
       // Element Node
       const element = node as HTMLElement;
       if (element.nodeName === "P") {
-        mainBlock.toggle.children.push(
+        blocks[1].callout?.children.push(
           createParagraphBlock(element.textContent?.trim() || "")
         );
       } else if (element.nodeName === "H1") {
-        mainBlock.toggle.children.push(
+        blocks[1].callout?.children.push(
           createHeadingBlock(element.textContent || "", 1)
         );
       } else if (element.nodeName === "H2") {
-        mainBlock.toggle.children.push(
+        blocks[1].callout?.children.push(
           createHeadingBlock(element.textContent || "", 2)
         );
       } else if (element.nodeName === "UL") {
-        mainBlock.toggle.children.push(
+        blocks[1].callout?.children.push(
           ...createListBlocks(element as Element, "bulleted")
         );
       } else if (element.nodeName === "OL") {
-        mainBlock.toggle.children.push(
+        blocks[1].callout?.children.push(
           ...createListBlocks(element as Element, "numbered")
         );
       } else if (element.nodeName === "A") {
-        mainBlock.toggle.children.push(
+        blocks[1].callout?.children.push(
           createParagraphBlock(
             element.textContent || "",
             element.getAttribute("href") || undefined
@@ -60,7 +83,7 @@ export function convertHtmlToNotionBlocks(html: string) {
     }
   });
 
-  return [mainBlock];
+  return blocks;
 }
 
 /** Creates a paragraph block */
