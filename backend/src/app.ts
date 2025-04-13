@@ -36,7 +36,7 @@ async function main() {
     console.log("Starting periodic referenda refresh...");
     setInterval(refreshReferendas, Number(process.env.REFRESH_INTERVAL) * 1000);
 
-    setInterval(setToComplete, READY_CHECK_INTERVAL * 1000);
+    setInterval(checkForVotes, Number(READY_CHECK_INTERVAL) * 1000);
 
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
