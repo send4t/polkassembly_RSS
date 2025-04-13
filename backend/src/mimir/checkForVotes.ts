@@ -1,23 +1,27 @@
 import { ApiPromise, WsProvider } from "@polkadot/api";
 import { TRACKS } from "../utils/constants";
+import { ReferendumId } from "../types/properties";
 
 export async function checkForVotes() {
   try {
     // only do this, if there are ReadyToVote tranasctions
     // then fetch all the votes with api.query.convictionVoting.votingOf(account);
-    fetchActiveVotes(process.env.POLKADOT_MULTISIG as string, 1522);
+    const votedList = await fetchActiveVotes(
+      process.env.POLKADOT_MULTISIG as string
+    );
+    console.log("Voted list:", votedList);
     // then do a filter on the votes
   } catch (error) {
     console.error("Error checking vote statuses (checkForVotes):", error);
   }
 }
 
-async function fetchActiveVotes(account: string, referendumIndex: number) {
+async function fetchActiveVotes(account: string): Promise<ReferendumId[]> {
   try {
     const wsProvider = new WsProvider("wss://rpc.polkadot.io");
     const api = await ApiPromise.create({ provider: wsProvider });
 
-    let allVotes = [];
+    let allVotes: ReferendumId[] = [];
     console.log(`Fetching votes for account: ${account}`);
     for (const trackId of TRACKS) {
       const votingResult = (await api.query.convictionVoting.votingFor(
@@ -25,27 +29,16 @@ async function fetchActiveVotes(account: string, referendumIndex: number) {
         trackId
       )) as any;
 
-      console.table(votingResult.toHuman().Casting.votes);
-
-      if (votingResult.isDirect) {
-        const votes = votingResult.asDirect.votes;
-        for (const [index, vote] of votes) {
-          if (index.toNumber() === referendumIndex) {
-            console.log(`✅ Voted on Referendum #${referendumIndex}`);
-            console.log(`Vote info:`, vote.toHuman());
-            return true;
-          }
-        }
-      }
+      votingResult.toHuman().Casting.votes.forEach((vote: any) => {
+        const refId = (vote[0] as string).split(",").join("");
+        if (Number.isNaN(Number(refId))) throw "Invalid referendum ID";
+        allVotes.push(Number(refId));
+      });
     }
 
-    console.log(`❌ Did not vote on Referendum #${referendumIndex}`);
-    return false;
+    return allVotes;
   } catch (error) {
-    console.error(
-      `Error checking vote for account ${account} on referendum ${referendumIndex}:`,
-      error
-    );
+    console.error(`Error checking vote for account ${account}:`, error);
     throw error;
   }
 }
