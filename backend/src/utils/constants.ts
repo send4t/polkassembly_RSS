@@ -24,11 +24,11 @@ export const SUCCESS_PAGE = `
                 .success { color: green; font-size: 24px; margin-bottom: 20px; }
                 .button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 5px; }
                 .button:hover { background: #218838; }
-                img.logo { margin-bottom: 30px; width: 25vw; }
+                .logo { margin-bottom: 30px; width: 25vw; }
             </style>
         </head>
         <body>
-            <img alt="Polkadot Logo" src="${POLKADOT_LOGO}" />
+            <img class="logo" alt="Polkadot Logo" src="${POLKADOT_LOGO}" />
             <div class="success">✅ ReadyToVote transactions were sent to Mimir!</div>
         </body>
     </html>
