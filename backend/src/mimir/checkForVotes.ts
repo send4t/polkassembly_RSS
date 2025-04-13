@@ -1,4 +1,5 @@
 import { ApiPromise, WsProvider } from "@polkadot/api";
+import { TRACKS } from "../utils/constants";
 
 export async function checkForVotes() {
   try {
@@ -16,26 +17,24 @@ async function fetchActiveVotes(account: string, referendumIndex: number) {
     const wsProvider = new WsProvider("wss://rpc.polkadot.io");
     const api = await ApiPromise.create({ provider: wsProvider });
 
-    const refId = 1522;
-    const referendum = await api.query.referenda.referendumInfoFor(refId);
+    let allVotes = [];
+    console.log(`Fetching votes for account: ${account}`);
+    for (const trackId of TRACKS) {
+      const votingResult = (await api.query.convictionVoting.votingFor(
+        account,
+        trackId
+      )) as any;
 
-    // 1. Get all keys (track IDs)
-    const keys = await api.query.referenda.tracks.keys(); // Vec<StorageKey>
-    console.table(keys);
+      console.table(votingResult.toHuman().Casting.votes);
 
-    const voting = (await api.query.convictionVoting.votingFor(
-      account,
-      33
-    )) as any;
-    console.table(voting.toHuman());
-
-    if (voting.isDirect) {
-      const votes = voting.asDirect.votes;
-      for (const [index, vote] of votes) {
-        if (index.toNumber() === referendumIndex) {
-          console.log(`✅ Voted on Referendum #${referendumIndex}`);
-          console.log(`Vote info:`, vote.toHuman());
-          return true;
+      if (votingResult.isDirect) {
+        const votes = votingResult.asDirect.votes;
+        for (const [index, vote] of votes) {
+          if (index.toNumber() === referendumIndex) {
+            console.log(`✅ Voted on Referendum #${referendumIndex}`);
+            console.log(`Vote info:`, vote.toHuman());
+            return true;
+          }
         }
       }
     }
