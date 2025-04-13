@@ -24,24 +24,26 @@ app.get('/send-to-mimir', async (req: Request, res: Response) => {
 });
 
 async function main() {
-    try {
-        console.log("Waiting until the start minute...");
-        //await waitUntilStartMinute();
+  try {
+    console.log("Waiting until the start minute...");
+    await waitUntilStartMinute();
 
-        console.log("Refreshing referendas...");
-        refreshReferendas();                       // with 7 app instances, we can't start all of them at the same time (because of the rate limit)
+    console.log("Refreshing referendas...");
+    refreshReferendas(); // with 7 app instances, we can't start all of them at the same time (because of the rate limit)
 
-        console.log("Starting periodic referenda refresh...");
-        setInterval(refreshReferendas, Number(process.env.REFRESH_INTERVAL) * 1000);
+    console.log("Starting periodic referenda refresh...");
+    setInterval(refreshReferendas, Number(process.env.REFRESH_INTERVAL) * 1000);
 
-        const PORT = process.env.PORT || 3000;
-        app.listen(PORT, () => {
-            console.log(`OpenGov Voting tool is running, port: ${PORT}`);
-        });
-    } catch (error) {
-        console.error("Fatal error in main():", error);
-        process.exit(1);
-    }
+    setInterval(checkForVotes, Number(READY_CHECK_INTERVAL) * 1000);
+
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`OpenGov Voting tool is running, port: ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Fatal error in main():", error);
+    process.exit(1);
+  }
 }
 
 main();
