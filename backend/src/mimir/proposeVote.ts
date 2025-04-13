@@ -1,9 +1,5 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
-import {
-  cryptoWaitReady,
-  encodeAddress,
-  encodeMultiAddress,
-} from "@polkadot/util-crypto";
+import { cryptoWaitReady, encodeAddress } from "@polkadot/util-crypto";
 import { stringToHex } from "@polkadot/util";
 import {
   BALANCE,
@@ -12,9 +8,9 @@ import {
   MIMIR_URL,
   MNEMONIC,
   POLKADOT_SS58_FORMAT,
-  THRESHOLD,
 } from "../utils/constants";
 import { Chain, ReferendumId, SuggestedVote } from "../types/properties";
+import { KeyringPair } from "@polkadot/keyring/types";
 
 /**
  * Sends transaction to Mimir, where it can be batched with other transactions, then signed.
@@ -31,7 +27,7 @@ export async function proposeVoteTransaction(
   id: ReferendumId,
   vote: SuggestedVote,
   conviction: number = 1
-): Promise<void> {
+): Promise<any> {
   try {
     if (!MNEMONIC) throw "Please specify MNEMONIC in .env!";
     if (!multisig)
@@ -50,50 +46,9 @@ export async function proposeVoteTransaction(
 
     console.log("Multisig address: ", multisig);
 
-    // Prepare request payload
-    let call;
-    if (vote === SuggestedVote.Abstain) {
-      call = api.tx.convictionVoting.vote(id, {
-        Split: {
-          aye: 0,
-          nay: 0,
-          abstain: BALANCE,
-        },
-      }).method;
-    } else {
-      call = api.tx.convictionVoting.vote(id, {
-        Standard: {
-          vote: {
-            aye: vote === SuggestedVote.Aye,
-            conviction: conviction,
-          },
-          balance: BALANCE,
-        },
-      }).method;
-    }
+    const payload = prepareRequestPayload(vote, id, conviction, api);
 
-    const callHex = call.toHex();
-
-    const payload = {
-      calldata: callHex,
-      timestamp: Date.now(),
-    };
-
-    const message = [
-      "Sign for mimir batch\n",
-      `Call Data: ${payload.calldata}\n`,
-      `Address: ${multisig}\n`,
-      `Timestamp: ${payload.timestamp}`,
-    ].join("");
-
-    const signature = sender.sign(stringToHex(message));
-    const signatureHex = `0x${Buffer.from(signature).toString("hex")}`;
-
-    const request = {
-      ...payload,
-      signature: signatureHex,
-      signer: senderAddress,
-    };
+    const request = prepareRequest(payload, multisig, sender, senderAddress);
 
     const chain = network.toLowerCase();
 
@@ -136,4 +91,82 @@ export async function proposeVoteTransaction(
     console.error("Failed to upload transaction: ", error);
     throw error;
   }
+}
+
+/**
+ * Prepares request payload that will be sent to Mimir
+ * @param vote - Aye | Nay | Astain.
+ * @param id - The referendum ID.
+ * @param conviction - The conviction multiplier, default is 1.
+ * @param api - The Polkadot API instance.
+ * @returns The request payload that was created by @polkadot/api. This will be executed on-chain.
+ */
+function prepareRequestPayload(
+  vote: SuggestedVote,
+  id: ReferendumId,
+  conviction: number,
+  api: ApiPromise
+): VotingPayload {
+  let call;
+  if (vote === SuggestedVote.Abstain) {
+    call = api.tx.convictionVoting.vote(id, {
+      Split: {
+        aye: 0,
+        nay: 0,
+        abstain: BALANCE,
+      },
+    }).method;
+  } else {
+    call = api.tx.convictionVoting.vote(id, {
+      Standard: {
+        vote: {
+          aye: vote === SuggestedVote.Aye,
+          conviction: conviction,
+        },
+        balance: BALANCE,
+      },
+    }).method;
+  }
+
+  const callHex = call.toHex();
+
+  const payload = {
+    calldata: callHex,
+    timestamp: Date.now(),
+  };
+
+  return payload;
+}
+
+/**
+ * Prepares request that will be sent to Mimir
+ * @param payload - The calldata and timestamp.
+ * @param multisig - The multisig address.
+ * @param sender - Propoer's KeyringPair.
+ * @param senderAddress - Proposer's address.
+ * @returns The request object.
+ */
+function prepareRequest(
+  payload: VotingPayload,
+  multisig: string,
+  sender: KeyringPair,
+  senderAddress: string
+) {
+  const message = [
+    "Sign for mimir batch\n",
+    `Call Data: ${payload.calldata}\n`,
+    `Address: ${multisig}\n`,
+    `Timestamp: ${payload.timestamp}`,
+  ].join("");
+
+  const signature = sender.sign(stringToHex(message));
+  const signatureHex = `0x${Buffer.from(signature).toString("hex")}`;
+
+  const request = {
+    ...payload,
+    signature: signatureHex,
+    signer: senderAddress,
+  };
+
+  return request;
 }
