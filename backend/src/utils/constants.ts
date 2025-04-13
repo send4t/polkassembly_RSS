@@ -23,7 +23,7 @@ export const SUCCESS_PAGE = `
         body {
           margin: 0;
           padding: 0;
-          background: linear-gradient(135deg, #f5f7fa, #e4eaf0);
+          background: linear-gradient(135deg, #b30059, #b30059);
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
           display: flex;
           justify-content: center;
@@ -72,7 +72,7 @@ export const SUCCESS_PAGE = `
       <div class="container">
         <img class="logo" alt="Polkadot Logo" src="${POLKADOT_LOGO}" />
         <div class="success">✅ ReadyToVote transactions were sent to Mimir!</div>
-        <button class="button" onclick="window.location.href='/'">Back to Home</button>
+        <button class="button" onclick="window.close()">Close Window</button>
       </div>
     </body>
   </html>
