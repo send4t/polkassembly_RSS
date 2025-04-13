@@ -1,24 +1,42 @@
 import { ApiPromise, WsProvider } from "@polkadot/api";
-import { TRACKS } from "../utils/constants";
-import { ReferendumId } from "../types/properties";
+import { KUSAMA_PROVIDER, POLKADOT_PROVIDER, TRACKS } from "../utils/constants";
+import { Chain, ReferendumId } from "../types/properties";
+import { ReadyProposal } from "../types/mimir";
 
-export async function checkForVotes() {
+export async function checkForVotes(
+  readyProposals: ReadyProposal[]
+): Promise<void> {
   try {
-    // only do this, if there are ReadyToVote tranasctions
-    // then fetch all the votes with api.query.convictionVoting.votingOf(account);
-    const votedList = await fetchActiveVotes(
-      process.env.POLKADOT_MULTISIG as string
+    if (readyProposals.length === 0) {
+      console.log("No ready proposals found.");
+      return;
+    }
+
+    const votedPolkadot = await fetchActiveVotes(
+      process.env.POLKADOT_MULTISIG as string,
+      Chain.Polkadot
     );
+    const votedKusama = await fetchActiveVotes(
+      process.env.KUSAMA_MULTISIG as string,
+      Chain.Kusama
+    );
+    const votedList = [...votedPolkadot, ...votedKusama];
     console.log("Voted list:", votedList);
+
     // then do a filter on the votes
   } catch (error) {
     console.error("Error checking vote statuses (checkForVotes):", error);
   }
 }
 
-async function fetchActiveVotes(account: string): Promise<ReferendumId[]> {
+async function fetchActiveVotes(
+  account: string,
+  network: Chain
+): Promise<ReferendumId[]> {
   try {
-    const wsProvider = new WsProvider("wss://rpc.polkadot.io");
+    const wsProvider = new WsProvider(
+      network === Chain.Kusama ? KUSAMA_PROVIDER : POLKADOT_PROVIDER
+    );
     const api = await ApiPromise.create({ provider: wsProvider });
 
     let allVotes: ReferendumId[] = [];

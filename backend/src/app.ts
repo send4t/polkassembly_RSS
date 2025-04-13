@@ -9,8 +9,11 @@ import { sendReadyProposalsToMimir } from "./mimir/refreshEndpoint";
 import { READY_CHECK_INTERVAL, SUCCESS_PAGE } from "./utils/constants";
 import { waitUntilStartMinute } from "./utils/utils";
 import { checkForVotes } from "./mimir/checkForVotes";
+import { ReadyProposal } from "./types/mimir";
 
 const app = express();
+
+const readyProposals: ReadyProposal[] = [];
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -29,7 +32,7 @@ app.get("/send-to-mimir", async (req: Request, res: Response) => {
 async function main() {
   try {
     console.log("Waiting until the start minute...");
-    checkForVotes(); // check for votes immediately
+    checkForVotes(readyProposals); // check for votes immediately
     return;
     await waitUntilStartMinute();
 
