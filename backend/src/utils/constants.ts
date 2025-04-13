@@ -47,7 +47,7 @@ export const SUCCESS_PAGE = `
         }
 
         .success {
-          color: #28a745;
+          color: #b30059;
           font-size: 22px;
           margin-bottom: 20px;
         }
@@ -71,7 +71,7 @@ export const SUCCESS_PAGE = `
     <body>
       <div class="container">
         <img class="logo" alt="Polkadot Logo" src="${POLKADOT_LOGO}" />
-        <div class="success">✅ ReadyToVote transactions were sent to Mimir!</div>
+        <div class="success">ReadyToVote transactions were sent to Mimir!</div>
         <button class="button" onclick="window.close()">Close Window</button>
       </div>
     </body>
