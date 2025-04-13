@@ -7,6 +7,7 @@ import {
   KUSAMA_SS58_FORMAT,
   MIMIR_URL,
   MNEMONIC,
+  POLKADOT_PROVIDER,
   POLKADOT_SS58_FORMAT,
 } from "../utils/constants";
 import { Chain, ReferendumId, SuggestedVote } from "../types/properties";
@@ -38,7 +39,9 @@ export async function proposeVoteTransaction(
     let ss58Format = POLKADOT_SS58_FORMAT;
     if (network === Chain.Kusama) ss58Format = KUSAMA_SS58_FORMAT;
 
-    const wsProvider = new WsProvider(KUSAMA_PROVIDER);
+    const wsProvider = new WsProvider(
+      network === Chain.Kusama ? KUSAMA_PROVIDER : POLKADOT_PROVIDER
+    );
     const api = await ApiPromise.create({ provider: wsProvider });
     const keyring = new Keyring({ type: "sr25519" });
     const sender = keyring.addFromMnemonic(MNEMONIC);
