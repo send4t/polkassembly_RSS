@@ -28,7 +28,7 @@ export const SUCCESS_PAGE = `
             </style>
         </head>
         <body>
-            <img alt="Polkadot Logo" src"${POLKADOT_LOGO}" />
+            <img alt="Polkadot Logo" src="${POLKADOT_LOGO}" />
             <div class="success">✅ ReadyToVote transactions were sent to Mimir!</div>
         </body>
     </html>
