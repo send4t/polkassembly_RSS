@@ -2,12 +2,13 @@ import express, { Request, Response } from 'express';
 import bodyParser from 'body-parser';
 const dotenv = require('dotenv');
 dotenv.config();
-if (!process.env.REFRESH_INTERVAL) throw "Please specify REFRESH_INTERVAL in .env!";
-import { refreshReferendas } from './refresh';
-import { sendReadyProposalsToMimir } from './mimir/refreshEndpoint';
-import { SUCCESS_PAGE } from './utils/constants';
-import { waitUntilStartMinute } from './utils/utils';
-
+if (!process.env.REFRESH_INTERVAL)
+  throw "Please specify REFRESH_INTERVAL in .env!";
+import { refreshReferendas } from "./refresh";
+import { sendReadyProposalsToMimir } from "./mimir/refreshEndpoint";
+import { READY_CHECK_INTERVAL, SUCCESS_PAGE } from "./utils/constants";
+import { waitUntilStartMinute } from "./utils/utils";
+import { checkForVotes } from "./mimir/checkForVotes";
 
 const app = express();
 
@@ -26,6 +27,8 @@ app.get('/send-to-mimir', async (req: Request, res: Response) => {
 async function main() {
   try {
     console.log("Waiting until the start minute...");
+    checkForVotes(); // check for votes immediately
+    return;
     await waitUntilStartMinute();
 
     console.log("Refreshing referendas...");
