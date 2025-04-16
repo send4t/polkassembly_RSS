@@ -47,11 +47,14 @@ export async function proposeVoteTransaction(
     console.log("Multisig address: ", multisig);
 
     const payload = prepareRequestPayload(vote, id, conviction, api);
+    console.log("Payload: ", payload)
 
     const request = prepareRequest(payload, multisig, sender, senderAddress);
+    console.log("Request: ", request)
 
     const chain = network.toLowerCase();
 
+    console.log("Proposer address: ", senderAddress);
     const response = await fetch(
       `${MIMIR_URL}/v1/chains/${chain}/${multisig}/transactions/batch`,
       {
@@ -67,11 +70,13 @@ export async function proposeVoteTransaction(
 
     let result;
 
+    const text = await response.text();
+
     try {
-      result = await response.json();
+      result = JSON.parse(text);
     } catch (error) {
-      const text = await response.text();
-      throw new Error(`Response was not JSON. Text content: ${text}`);
+      //throw new Error(`Response was not JSON. Text content: ${text}`);
+      console.error(`Response was not JSON. Text content: ${text}`);
     }
 
     if (!response.ok) {
@@ -80,11 +85,9 @@ export async function proposeVoteTransaction(
       );
     }
 
-    if (!result) {
-      throw new Error("Response body is empty");
-    }
-
     console.log("Transaction result: ", result);
+    console.log("HTTP response.ok: ", response.ok)
+    console.log("response.status: ", response.status)
 
     return result;
   } catch (error) {
