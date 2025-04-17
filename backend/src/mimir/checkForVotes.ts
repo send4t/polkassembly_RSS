@@ -1,6 +1,6 @@
 import { ApiPromise, WsProvider } from "@polkadot/api";
 import { KUSAMA_PROVIDER, POLKADOT_PROVIDER, TRACKS } from "../utils/constants";
-import { Chain, ReferendumId } from "../types/properties";
+import { Chain, ReferendumId, SuggestedVote } from "../types/properties";
 import { ReadyProposal } from "../types/mimir";
 
 export async function checkForVotes(
@@ -9,7 +9,11 @@ export async function checkForVotes(
   try {
     if (readyProposals.length === 0) {
       console.log("No ready proposals found.");
-      return;
+      //return;
+      readyProposals = [{
+        id: 1519,
+        voted: SuggestedVote.Aye
+      }]
     }
 
     const votedPolkadot = await fetchActiveVotes(
@@ -23,7 +27,12 @@ export async function checkForVotes(
     const votedList = [...votedPolkadot, ...votedKusama];
     console.log("Voted list:", votedList);
 
-    // then do a filter on the votes
+    readyProposals.forEach((proposal, index) => {
+      const found = votedList.includes(proposal.id);
+      console.log("Found: ", found);
+      console.log("Index: ", index);
+    });
+    
   } catch (error) {
     console.error("Error checking vote statuses (checkForVotes):", error);
   }

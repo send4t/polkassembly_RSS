@@ -12,7 +12,7 @@ export const BALANCE = 1000000000;
 export const THRESHOLD = process.env.THRESHOLD as unknown as number;
 
 // Default ReadyToVote -> Completed check interval is 1 minute
-export const READY_CHECK_INTERVAL = process.env.READY_CHECK_INTERVAL || 60; 
+export const READY_CHECK_INTERVAL = process.env.READY_CHECK_INTERVAL || 60;
 
 export const MIMIR_URL = "https://mimir-client.mimir.global";
 
