@@ -45,16 +45,15 @@ export async function proposeVoteTransaction(
     const senderAddress = encodeAddress(sender.address, ss58Format);
 
     console.log("Multisig address: ", multisig);
+    console.log("Proposer address: ", senderAddress);
 
     const payload = prepareRequestPayload(vote, id, conviction, api);
-    console.log("Payload: ", payload)
 
     const request = prepareRequest(payload, multisig, sender, senderAddress);
     console.log("Request: ", request)
 
     const chain = network.toLowerCase();
 
-    console.log("Proposer address: ", senderAddress);
     const response = await fetch(
       `${MIMIR_URL}/v1/chains/${chain}/${multisig}/transactions/batch`,
       {
@@ -167,6 +166,7 @@ function prepareRequest(
 
   const request = {
     ...payload,
+    allowDuplicates: true,
     signature: signatureHex,
     signer: senderAddress,
   };
