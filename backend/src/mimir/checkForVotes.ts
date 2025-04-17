@@ -14,12 +14,8 @@ export async function checkForVotes(
 ): Promise<void> {
   try {
     if (readyProposals.length === 0) {
-      console.log("No ready proposals found.");
-      //return;
-      readyProposals = [{
-        id: 1519,
-        voted: SuggestedVote.Aye
-      }]
+      console.info("No ready proposals found.");
+      return;
     }
 
     const votedPolkadot = await fetchActiveVotes(
@@ -31,18 +27,19 @@ export async function checkForVotes(
       Chain.Kusama
     );
     const votedList = [...votedPolkadot, ...votedKusama];
-    console.log("Voted list:", votedList);
 
     const pages = await getNotionPages();
     
     readyProposals.forEach(async (proposal, index) => {
       const found = votedList.includes(proposal.id);
-      console.log("Found: ", found);
-      console.log("Index: ", index);
+      if (!found) return;
+
       const page = await findNotionPageByPostId(pages, proposal.id);
+      
       if (page) {
         await updateNotionToVoted(page.id, proposal.voted);
         console.info(`Notion page ${page.id} updated: ${proposal.voted}`);
+        readyProposals.splice(index, 1);
       } else {
         console.error("Page not found, id: ", proposal.id);
       }

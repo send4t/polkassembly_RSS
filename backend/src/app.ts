@@ -20,7 +20,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/send-to-mimir', async (req: Request, res: Response) => {
     try {
-        await sendReadyProposalsToMimir();
+        await sendReadyProposalsToMimir(readyProposals);
         res.send(SUCCESS_PAGE);
     } catch (error) {
         res.status(500).send('Error sending referendas to Mimir: ' + (error as any).message);
@@ -31,8 +31,8 @@ async function main() {
   try {
     console.log("Waiting until the start minute...");
     checkForVotes(readyProposals); // check for votes immediately
-    return;
-    await waitUntilStartMinute();
+    
+    //await waitUntilStartMinute();
 
     console.log("Refreshing referendas...");
     refreshReferendas(); // with 7 app instances, we can't start all of them at the same time (because of the rate limit)
@@ -40,7 +40,7 @@ async function main() {
     console.log("Starting periodic referenda refresh...");
     setInterval(refreshReferendas, Number(process.env.REFRESH_INTERVAL) * 1000);
 
-    setInterval(checkForVotes, Number(READY_CHECK_INTERVAL) * 1000);
+    setInterval(() => checkForVotes(readyProposals), Number(READY_CHECK_INTERVAL) * 1000);
 
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {

@@ -1,7 +1,8 @@
 import { getNotionPages } from "../findNotionPage";
+import { ReadyProposal } from "../types/mimir";
 import { handleReferendaVote } from "./handleReferenda";
 
-export async function sendReadyProposalsToMimir(): Promise<void> {
+export async function sendReadyProposalsToMimir(readyProposals: ReadyProposal[]): Promise<void> {
   try {
     console.info("Sending ReadyToVote proposals to Mimir ...");
     const pages = await getNotionPages();
@@ -11,7 +12,7 @@ export async function sendReadyProposalsToMimir(): Promise<void> {
       const network = page.properties?.["Chain"].select?.name;
       const postId = page.properties?.["Number"].title[0].text.content;
 
-      const promise = handleReferendaVote(page, network, postId);
+      const promise = handleReferendaVote(page, network, postId, readyProposals);
       mimirPromises.push(promise);
     }
 
