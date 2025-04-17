@@ -45,10 +45,12 @@ export async function proposeVoteTransaction(
     const senderAddress = encodeAddress(sender.address, ss58Format);
 
     console.log("Multisig address: ", multisig);
+    console.log("Proposer address: ", senderAddress);
 
     const payload = prepareRequestPayload(vote, id, conviction, api);
 
     const request = prepareRequest(payload, multisig, sender, senderAddress);
+    console.log("Request: ", request)
 
     const chain = network.toLowerCase();
 
@@ -67,11 +69,13 @@ export async function proposeVoteTransaction(
 
     let result;
 
+    const text = await response.text();
+
     try {
-      result = await response.json();
+      result = JSON.parse(text);
     } catch (error) {
-      const text = await response.text();
-      throw new Error(`Response was not JSON. Text content: ${text}`);
+      //throw new Error(`Response was not JSON. Text content: ${text}`);
+      console.error(`Response was not JSON. Text content: ${text}`);
     }
 
     if (!response.ok) {
@@ -80,11 +84,9 @@ export async function proposeVoteTransaction(
       );
     }
 
-    if (!result) {
-      throw new Error("Response body is empty");
-    }
-
     console.log("Transaction result: ", result);
+    console.log("HTTP response.ok: ", response.ok)
+    console.log("response.status: ", response.status)
 
     return result;
   } catch (error) {
@@ -164,6 +166,7 @@ function prepareRequest(
 
   const request = {
     ...payload,
+    allowDuplicates: true,
     signature: signatureHex,
     signer: senderAddress,
   };

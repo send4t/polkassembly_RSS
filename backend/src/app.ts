@@ -26,7 +26,7 @@ app.get('/send-to-mimir', async (req: Request, res: Response) => {
 async function main() {
     try {
         console.log("Waiting until the start minute...");
-        await waitUntilStartMinute();
+        //await waitUntilStartMinute();
 
         console.log("Refreshing referendas...");
         refreshReferendas();                       // with 7 app instances, we can't start all of them at the same time (because of the rate limit)
