@@ -12,6 +12,7 @@ import {
 } from "../utils/constants";
 import { Chain, ReferendumId, SuggestedVote } from "../types/properties";
 import { KeyringPair } from "@polkadot/keyring/types";
+import { ReadyProposal, VotingPayload } from "../types/mimir";
 
 /**
  * Sends transaction to Mimir, where it can be batched with other transactions, then signed.
@@ -19,7 +20,7 @@ import { KeyringPair } from "@polkadot/keyring/types";
  * @param multisig - Array of addresses that are part of the multisig.
  * @param network - Network to send the transaction to. Can be Kusama or Polkadot.
  * @param id - Referendum ID.
- * @param vote - True for aye, false for nay.
+ * @param vote - Aye | Nay | Abstain (contains emojis, see types).
  * @param conviction - Conviction value for the vote. Default is 1.
  */
 export async function proposeVoteTransaction(
@@ -28,7 +29,7 @@ export async function proposeVoteTransaction(
   id: ReferendumId,
   vote: SuggestedVote,
   conviction: number = 1
-): Promise<any> {
+): Promise<ReadyProposal> {
   try {
     if (!MNEMONIC) throw "Please specify MNEMONIC in .env!";
     if (!multisig)
@@ -91,7 +92,11 @@ export async function proposeVoteTransaction(
     console.log("HTTP response.ok: ", response.ok)
     console.log("response.status: ", response.status)
 
-    return result;
+    return {
+      id,
+      voted: vote,
+      timestamp: payload.timestamp,
+    };
   } catch (error) {
     console.error("Failed to upload transaction: ", error);
     throw error;
