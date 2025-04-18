@@ -41,7 +41,7 @@ export async function checkForVotes(): Promise<void> {
       process.env.KUSAMA_MULTISIG as string,
       Chain.Kusama
     );
-    const votedList = [...votedPolkadot, ...votedKusama, 1528];
+    const votedList = [...votedPolkadot, ...votedKusama];
 
     const pages = await getNotionPages();
 
