@@ -11,11 +11,9 @@ import {
   ReferendumId,
   SuggestedVote,
 } from "../types/properties";
-import { ReadyProposal } from "../types/mimir";
 import { NotionPageId, NotionProperties } from "../types/notion";
 import axios from "axios";
 import { findNotionPageByPostId, getNotionPages } from "../findNotionPage";
-import { read } from "fs";
 import {
   loadReadyProposalsFromFile,
   saveReadyProposalsToFile,
@@ -33,6 +31,7 @@ export async function checkForVotes(): Promise<void> {
       console.info("No ready proposals found.");
       return;
     }
+    console.table(readyProposals);
 
     const votedPolkadot = await fetchActiveVotes(
       process.env.POLKADOT_MULTISIG as string,
@@ -42,23 +41,25 @@ export async function checkForVotes(): Promise<void> {
       process.env.KUSAMA_MULTISIG as string,
       Chain.Kusama
     );
-    const votedList = [...votedPolkadot, ...votedKusama];
+    const votedList = [...votedPolkadot, ...votedKusama, 1528];
 
     const pages = await getNotionPages();
 
     readyProposals.forEach(async (proposal, index) => {
-      const found = votedList.includes(proposal.id);
+      const refId = Number(proposal.id);
+      const found = votedList.includes(refId);
       if (!found) return;
 
-      const page = await findNotionPageByPostId(pages, proposal.id);
+      const page = await findNotionPageByPostId(pages, refId);
 
       if (page) {
+        console.info(`Page found (checkForVotes): ${page.id}`);
         await updateNotionToVoted(page.id, proposal.voted);
         console.info(`Notion page ${page.id} updated: ${proposal.voted}`);
         readyProposals.splice(index, 1);
         await saveReadyProposalsToFile(readyProposals, READY_FILE as string);
       } else {
-        console.error("Page not found, id: ", proposal.id);
+        console.error("Page not found, id: ", refId);
       }
     });
   } catch (error) {
