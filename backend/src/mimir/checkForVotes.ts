@@ -133,23 +133,36 @@ export async function updateNotionToVoted(
 
   const data = { properties };
 
-  try {
-    await axios.patch(notionApiUrl, data, {
-      headers: {
-        Authorization: `Bearer ${notionApiToken}`,
-        "Content-Type": "application/json",
-        "Notion-Version": process.env.NOTION_VERSION,
-      },
-    });
+  const maxRetries = 5;
+  const retryDelay = 60000; // 1 minute in milliseconds
+  let retryCount = 0;
 
-    return pageId;
-  } catch (error) {
-    console.error(
-      "Error updating page:",
-      (error as any).response
+  while (retryCount < maxRetries) {
+    try {
+      await axios.patch(notionApiUrl, data, {
+        headers: {
+          Authorization: `Bearer ${notionApiToken}`,
+          "Content-Type": "application/json",
+          "Notion-Version": process.env.NOTION_VERSION,
+        },
+      });
+      return pageId;
+    } catch (error) {
+      retryCount++;
+      const errorMessage = (error as any).response
         ? (error as any).response.data
-        : (error as any).message
-    );
-    throw error;
+        : (error as any).message;
+      
+      console.error(`Error updating page (attempt ${retryCount}/${maxRetries}):`, errorMessage);
+      
+      if (retryCount === maxRetries) {
+        throw new Error(`Failed to update Notion page after ${maxRetries} attempts: ${errorMessage}`);
+      }
+      
+      console.log(`Waiting ${retryDelay/1000} seconds before retry...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    }
   }
+
+  return pageId;
 }
