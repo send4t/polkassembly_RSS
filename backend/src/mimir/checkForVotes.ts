@@ -65,7 +65,7 @@ export async function checkForVotes(): Promise<void> {
 
       if (page) {
         console.info(`Page found (checkForVotes): ${page.id}`);
-        await updateNotionToVoted(page.id, proposal.voted, extrinsicMap[refId]);
+        await updateNotionToVoted(page.id, proposal.voted, extrinsicMap[refId], page.properties?.["Chain"]?.select?.name as Chain);
         console.info(`Notion page ${page.id} updated: ${proposal.voted}`);
         readyProposals.splice(index, 1);
         await saveReadyProposalsToFile(readyProposals, READY_FILE as string);
@@ -117,7 +117,8 @@ async function fetchActiveVotes(
 export async function updateNotionToVoted(
   pageId: NotionPageId,
   vote: SuggestedVote,
-  subscanUrl: string
+  subscanUrl: string,
+  chain: Chain
 ): Promise<NotionPageId> {
   const notionApiUrl = `https://api.notion.com/v1/pages/${pageId}`;
 
@@ -147,7 +148,7 @@ export async function updateNotionToVoted(
 
   properties["Voted link"] = {
     type: "url",
-    url: subscanUrl,
+    url: `https://${chain.toLowerCase()}.subscan.io/extrinsic/${subscanUrl}`,
   };
 
   const data = { properties };
@@ -214,7 +215,6 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
 
     for (const extrinsic of resp.data.data.extrinsics) {
       if (extrinsic?.params?.[0]?.value && votedList.includes(extrinsic.params[0].value)) {
-        console.log("Voted: ", extrinsic.params[0].value);
         extrinsicHashMap[extrinsic.params[0].value] = extrinsic.extrinsic_hash;
       }
     }
