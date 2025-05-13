@@ -7,6 +7,7 @@ import {
 } from "../utils/constants";
 import {
   Chain,
+  ExtrinsicHashMap,
   InternalStatus,
   ReferendumId,
   SuggestedVote,
@@ -18,6 +19,7 @@ import {
   loadReadyProposalsFromFile,
   saveReadyProposalsToFile,
 } from "../utils/readyFileHandlers";
+import { sleep } from "../utils/utils";
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 
@@ -44,6 +46,7 @@ export async function checkForVotes(): Promise<void> {
     const votedList = [...votedPolkadot, ...votedKusama];
 
     const pages = await getNotionPages();
+    const extrinsicMap = await checkSubscan(votedList);
 
     readyProposals.forEach(async (proposal, index) => {
       const refId = Number(proposal.id);
@@ -54,7 +57,7 @@ export async function checkForVotes(): Promise<void> {
 
       if (page) {
         console.info(`Page found (checkForVotes): ${page.id}`);
-        await updateNotionToVoted(page.id, proposal.voted);
+        await updateNotionToVoted(page.id, proposal.voted, extrinsicMap[refId]);
         console.info(`Notion page ${page.id} updated: ${proposal.voted}`);
         readyProposals.splice(index, 1);
         await saveReadyProposalsToFile(readyProposals, READY_FILE as string);
@@ -103,7 +106,8 @@ async function fetchActiveVotes(
  *  Referenda will be updated to VotedAye, VotedNay, VotedAbstain */
 export async function updateNotionToVoted(
   pageId: NotionPageId,
-  vote: SuggestedVote
+  vote: SuggestedVote,
+  subscanUrl: string
 ): Promise<NotionPageId> {
   const notionApiUrl = `https://api.notion.com/v1/pages/${pageId}`;
 
@@ -131,6 +135,11 @@ export async function updateNotionToVoted(
     status: { name: status },
   };
 
+  properties["Voted link"] = {
+    type: "url",
+    url: subscanUrl,
+  };
+
   const data = { properties };
 
   const maxRetries = 5;
@@ -146,6 +155,7 @@ export async function updateNotionToVoted(
           "Notion-Version": process.env.NOTION_VERSION,
         },
       });
+
       return pageId;
     } catch (error) {
       retryCount++;
@@ -160,9 +170,48 @@ export async function updateNotionToVoted(
       }
       
       console.log(`Waiting ${retryDelay/1000} seconds before retry...`);
-      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      await sleep(retryDelay);
     }
   }
 
   return pageId;
+}
+
+export async function checkSubscan(votedList: ReferendumId[]): Promise<ExtrinsicHashMap> {
+  try {
+    let extrinsicHashMap: ExtrinsicHashMap = {};
+
+    const subscanUrl = `https://polkadot.api.subscan.io/api/scan/proxy/extrinsics`;
+
+    const data = {
+      account: process.env.POLKADOT_MULTISIG as string,
+      row: 10,
+      page: 0,
+      order: 'desc'
+    }
+    
+    const apiKey = process.env.SUBSCAN_API_KEY;
+    if (!apiKey) {
+      throw new Error('SUBSCAN_API_KEY is not set in environment variables');
+    }
+
+    const resp = await axios.post(subscanUrl, data, {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
+      }
+    });
+
+    for (const extrinsic of resp.data.data.extrinsics) {
+      if (extrinsic?.params?.[0]?.value && votedList.includes(extrinsic.params[0].value)) {
+        console.log("Voted: ", extrinsic.params[0].value);
+        extrinsicHashMap[extrinsic.params[0].value] = extrinsic.extrinsic_hash;
+      }
+    }
+
+    return extrinsicHashMap;
+
+  } catch (error: any) {
+    throw new Error(`Error checking Subscan: ${error.message}`);
+  }
 }
