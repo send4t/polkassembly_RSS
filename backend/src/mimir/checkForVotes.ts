@@ -23,9 +23,16 @@ import {
 import { sleep } from "../utils/utils";
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
+let isCheckingVotes = false;
 
 export async function checkForVotes(): Promise<void> {
+  if (isCheckingVotes) {
+    console.log('Previous checkForVotes operation still running, skipping...');
+    return;
+  }
+
   try {
+    isCheckingVotes = true;
     const readyProposals = await loadReadyProposalsFromFile(
       READY_FILE as string
     );
@@ -68,6 +75,8 @@ export async function checkForVotes(): Promise<void> {
     });
   } catch (error) {
     console.error("Error checking vote statuses (checkForVotes):", error);
+  } finally {
+    isCheckingVotes = false;
   }
 }
 
