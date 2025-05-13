@@ -3,6 +3,7 @@ import {
   KUSAMA_PROVIDER,
   POLKADOT_PROVIDER,
   READY_FILE,
+  SUBSCAN_ROW_COUNT,
   TRACKS,
 } from "../utils/constants";
 import {
@@ -185,7 +186,7 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
 
     const data = {
       account: process.env.POLKADOT_MULTISIG as string,
-      row: 10,
+      row: SUBSCAN_ROW_COUNT,
       page: 0,
       order: 'desc'
     }
