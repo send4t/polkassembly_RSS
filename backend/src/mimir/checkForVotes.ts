@@ -192,10 +192,18 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
   try {
     let extrinsicHashMap: ExtrinsicHashMap = {};
 
-    const subscanUrl = `https://polkadot.api.subscan.io/api/scan/proxy/extrinsics`;
-
-    const data = {
+    const polkadotSubscanUrl = `https://polkadot.api.subscan.io/api/scan/proxy/extrinsics`;
+    const kusamaSubscanUrl = `https://kusama.api.subscan.io/api/scan/proxy/extrinsics`;
+    
+    const polkadotData = {
       account: process.env.POLKADOT_MULTISIG as string,
+      row: SUBSCAN_ROW_COUNT,
+      page: 0,
+      order: 'desc'
+    }
+
+    const kusamaData = {
+      account: process.env.KUSAMA_MULTISIG as string,
       row: SUBSCAN_ROW_COUNT,
       page: 0,
       order: 'desc'
@@ -206,14 +214,24 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
       throw new Error('SUBSCAN_API_KEY is not set in environment variables');
     }
 
-    const resp = await axios.post(subscanUrl, data, {
+    const polkadotResp = await axios.post(polkadotSubscanUrl, polkadotData, {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey
       }
     });
 
-    for (const extrinsic of resp.data.data.extrinsics) {
+    const kusamaResp = await axios.post(kusamaSubscanUrl, kusamaData, {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
+      }
+    });
+
+    const polkadotExtrinsics = polkadotResp.data.data.extrinsics;
+    const kusamaExtrinsics = kusamaResp.data.data.extrinsics;
+
+    for (const extrinsic of [...polkadotExtrinsics, ...kusamaExtrinsics]) {
       if (extrinsic?.params?.[0]?.value && votedList.includes(extrinsic.params[0].value)) {
         extrinsicHashMap[extrinsic.params[0].value] = extrinsic.extrinsic_hash;
       }
