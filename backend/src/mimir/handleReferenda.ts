@@ -6,11 +6,6 @@ import {
   ReferendumId,
   SuggestedVote,
 } from "../types/properties";
-import { READY_FILE } from "../utils/constants";
-import {
-  loadReadyProposalsFromFile,
-  saveReadyProposalsToFile,
-} from "../utils/readyFileHandlers";
 import { proposeVoteTransaction } from "./proposeVote";
 
 /** Decides whether to send transaction to Mimir with true or false value, abstain will not send transaction. */
@@ -18,9 +13,7 @@ export async function handleReferendaVote(
   page: NotionPage,
   network: Chain,
   postId: ReferendumId
-): Promise<void> {
-  const readyProposals = await loadReadyProposalsFromFile(READY_FILE as string);
-
+): Promise<ReadyProposal | undefined> {
   let multisig: string = "";
   if (network === Chain.Polkadot) {
     multisig = process.env.POLKADOT_MULTISIG || "";
@@ -73,8 +66,9 @@ export async function handleReferendaVote(
     }
 
     if (ready) {
-      readyProposals.push(ready);
-      await saveReadyProposalsToFile(readyProposals, READY_FILE as string);
+      return ready;
+    } else {
+      return undefined;
     }
   }
 }
