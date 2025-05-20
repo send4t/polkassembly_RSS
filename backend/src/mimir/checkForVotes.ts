@@ -235,7 +235,25 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
     const polkadotExtrinsics = polkadotResp.data.data.extrinsics;
     const kusamaExtrinsics = kusamaResp.data.data.extrinsics;
 
-    for (const extrinsic of [...polkadotExtrinsics, ...kusamaExtrinsics]) {
+    const extrinsics = [...polkadotExtrinsics, ...kusamaExtrinsics];
+    
+    // Add nested extrinsics to the list
+    for (const extrinsic of extrinsics) {
+      if (extrinsic.params[0].name === 'calls') {
+        console.info("Adding nested extrinsics to list");
+        console.log("extrinsic.params[0].value", extrinsic.params[0].value);
+
+        const nestedExtrinsics = extrinsic.params[0].value.map((nestedCall: any) => ({
+          ...nestedCall,
+          extrinsic_hash: extrinsic.extrinsic_hash  // Preserve the parent extrinsic hash
+        }));
+
+        extrinsics.push(...nestedExtrinsics);
+      }
+    }
+
+    // Create the extrinsic hash map
+    for (const extrinsic of extrinsics) {      
       let rawReferendumId = extrinsic?.params?.[0]?.value;
       let referendumId = null;
       
@@ -248,8 +266,8 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
         console.debug(`Regular referendum ID: ${referendumId}`);
       }
       
-      if (referendumId !== null && votedList.includes(referendumId)) {
-        extrinsicHashMap[rawReferendumId] = extrinsic.extrinsic_hash;
+      if (referendumId !== null && votedList.includes(referendumId) && extrinsic.extrinsic_hash) {
+        extrinsicHashMap[referendumId] = extrinsic.extrinsic_hash;
       }
     }
 
