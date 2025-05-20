@@ -232,8 +232,11 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
     const kusamaExtrinsics = kusamaResp.data.data.extrinsics;
 
     for (const extrinsic of [...polkadotExtrinsics, ...kusamaExtrinsics]) {
-      if (extrinsic?.params?.[0]?.value && votedList.includes(extrinsic.params[0].value)) {
-        extrinsicHashMap[extrinsic.params[0].value] = extrinsic.extrinsic_hash;
+      const rawReferendumId = extrinsic?.params?.[0]?.value;
+      const referendumId = rawReferendumId ? Number(rawReferendumId) : null;
+      
+      if (referendumId !== null && votedList.includes(referendumId)) {
+        extrinsicHashMap[rawReferendumId] = extrinsic.extrinsic_hash;
       }
     }
 
