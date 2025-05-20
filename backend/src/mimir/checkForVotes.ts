@@ -65,6 +65,10 @@ export async function checkForVotes(): Promise<void> {
 
       if (page) {
         console.info(`Page found (checkForVotes): ${page.id}`);
+
+        console.log("extrinsicMap", extrinsicMap);
+        console.log("extrinsicMap[refId]", extrinsicMap[refId]);
+
         await updateNotionToVoted(page.id, proposal.voted, extrinsicMap[refId], page.properties?.["Chain"]?.select?.name as Chain);
         console.info(`Notion page ${page.id} updated: ${proposal.voted}`);
         readyProposals.splice(index, 1);
@@ -232,8 +236,17 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
     const kusamaExtrinsics = kusamaResp.data.data.extrinsics;
 
     for (const extrinsic of [...polkadotExtrinsics, ...kusamaExtrinsics]) {
-      const rawReferendumId = extrinsic?.params?.[0]?.value;
-      const referendumId = rawReferendumId ? Number(rawReferendumId) : null;
+      let rawReferendumId = extrinsic?.params?.[0]?.value;
+      let referendumId = null;
+      
+      if (extrinsic?.params?.[0]?.value?.[0]?.call_name === "vote") {
+        rawReferendumId = extrinsic.params[0].value[0].params[0].value;
+        referendumId = rawReferendumId ? Number(rawReferendumId) : null;
+        console.debug(`Vote call referendum ID: ${referendumId}`);
+      } else {
+        referendumId = rawReferendumId ? Number(rawReferendumId) : null;
+        console.debug(`Regular referendum ID: ${referendumId}`);
+      }
       
       if (referendumId !== null && votedList.includes(referendumId)) {
         extrinsicHashMap[rawReferendumId] = extrinsic.extrinsic_hash;
