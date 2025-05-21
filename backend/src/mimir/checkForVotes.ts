@@ -121,9 +121,13 @@ async function fetchActiveVotes(
 export async function updateNotionToVoted(
   pageId: NotionPageId,
   vote: SuggestedVote,
-  subscanUrl: string,
+  subscanExtrinsicId: string,
   chain: Chain
 ): Promise<NotionPageId> {
+  if (!subscanExtrinsicId) {
+    throw new Error("Subscan extrinsic ID is undefined");
+  }
+
   const notionApiUrl = `https://api.notion.com/v1/pages/${pageId}`;
 
   const properties: NotionProperties = {};
@@ -152,7 +156,7 @@ export async function updateNotionToVoted(
 
   properties["Voted link"] = {
     type: "url",
-    url: `https://${chain.toLowerCase()}.subscan.io/extrinsic/${subscanUrl}`,
+    url: `https://${chain.toLowerCase()}.subscan.io/extrinsic/${subscanExtrinsicId}`,
   };
 
   const data = { properties };
