@@ -75,3 +75,9 @@ export type Link = string;
 export type VotingTime = string;
 
 export type ReferendumId = number;
+
+export type ExtrinsicHash = string;
+
+export type ExtrinsicHashMap = {
+    [key: ReferendumId]: ExtrinsicHash;
+}

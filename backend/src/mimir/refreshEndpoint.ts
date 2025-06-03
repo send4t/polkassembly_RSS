@@ -1,9 +1,12 @@
 import { getNotionPages } from "../findNotionPage";
+import { READY_FILE } from "../utils/constants";
+import { loadReadyProposalsFromFile, saveReadyProposalsToFile } from "../utils/readyFileHandlers";
 import { handleReferendaVote } from "./handleReferenda";
 
 export async function sendReadyProposalsToMimir(): Promise<void> {
   try {
     console.info("Sending ReadyToVote proposals to Mimir ...");
+    const readyProposals = await loadReadyProposalsFromFile(READY_FILE as string);
     const pages = await getNotionPages();
     const mimirPromises = [];
 
@@ -17,12 +20,21 @@ export async function sendReadyProposalsToMimir(): Promise<void> {
 
     const results = await Promise.allSettled(mimirPromises);
 
-    // Log failed operations
+    // Log failed operations or write READY_FILE
     results.forEach((result, index) => {
       if (result.status === "rejected") {
-        console.error(`Promise ${index} failed:`, result.reason);
+        console.error(`Promise ${index} failed (rejected):`, result.reason);
+      } else {
+        const ready = result.value;
+        if (ready) {
+          readyProposals.push(ready);
+        } else {
+          console.warn(`Promise ${index} resolved but returned undefined.`);
+        }
       }
     });
+
+    await saveReadyProposalsToFile(readyProposals, READY_FILE as string);
   } catch (error) {
     console.error(
       "Error while sending ReadyToVote proposals to Mimir: ",
