@@ -1,6 +1,6 @@
-import { fetchDataFromAPI } from './fetchReferendas';
-import { Chain } from '../types/properties';
-import { PostType, PolkassemblyReferenda, FetchReferendaReturnType } from '../types/polkassemly';
+import { fetchDataFromAPI } from '../../src/polkAssembly/fetchReferendas';
+import { Chain } from '../../src/types/properties';
+import { PostType, PolkassemblyReferenda, FetchReferendaReturnType } from '../../src/types/polkassemly';
 import axios from 'axios';
 
 // If you're using Jest, you can mock axios like this:

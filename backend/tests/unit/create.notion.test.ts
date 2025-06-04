@@ -1,28 +1,22 @@
-// import { createReferenda } from './create'; // Moved to beforeEach
-import { Chain, InternalStatus, Origin, TimelineStatus } from '../types/properties';
-import { NotionDatabaseId, CreateReferendumInput } from '../types/notion';
-import { PolkassemblyReferenda, PostType } from '../types/polkassemly';
+// import { createReferenda } from '../../src/notion/create'; // Moved to beforeEach
+import { Chain, InternalStatus, Origin, TimelineStatus } from '../../src/types/properties';
+import { NotionDatabaseId, CreateReferendumInput } from '../../src/types/notion';
+import { PolkassemblyReferenda, PostType } from '../../src/types/polkassemly';
 import type { AxiosStatic } from 'axios'; // Import AxiosStatic for typing the mock
-// import axios from 'axios'; // Axios is mocked globally and re-required if needed
-// import * as fetchReferendasModule from '../polkAssembly/fetchReferendas'; // Re-required in beforeEach
-// import * as updateContentModule from './updateContent'; // Re-required in beforeEach
 
 // Mock axios globally
 jest.mock('axios');
 
 // Mock modules whose specific functions will be used/asserted
-jest.mock('../polkAssembly/fetchReferendas');
-jest.mock('./updateContent');
-
-// const mockedFetchReferendumContent = fetchReferendasModule.fetchReferendumContent as jest.Mock;
-// const mockedUpdateContent = updateContentModule.updateContent as jest.Mock;
+jest.mock('../../src/polkAssembly/fetchReferendas');
+jest.mock('../../src/notion/updateContent');
 
 describe('Notion Integration - createReferenda', () => {
   const ORIGINAL_ENV = { ...process.env };
-  let createReferendaFunction: typeof import('./create').createReferenda;
+  let createReferendaFunction: typeof import('../../src/notion/create').createReferenda;
   let mockFetchReferendumContent: jest.Mock;
   let mockUpdateContent: jest.Mock;
-  let mockedAxios: jest.Mocked<AxiosStatic>; // Typed as a mocked AxiosStatic
+  let mockedAxios: jest.Mocked<AxiosStatic>; 
 
   beforeEach(() => {
     process.env = { ...ORIGINAL_ENV };
@@ -31,22 +25,18 @@ describe('Notion Integration - createReferenda', () => {
 
     jest.resetModules();
 
-    // Import modules AFTER resetting and setting env
-    const fetchReferendasModuleActual = require('../polkAssembly/fetchReferendas');
-    const updateContentModuleActual = require('./updateContent');
-    mockedAxios = require('axios'); // require('axios') returns the mocked module/instance
+    const fetchReferendasModuleActual = require('../../src/polkAssembly/fetchReferendas');
+    const updateContentModuleActual = require('../../src/notion/updateContent');
+    mockedAxios = require('axios'); 
 
-    // Get the mocked functions/instances
     mockFetchReferendumContent = fetchReferendasModuleActual.fetchReferendumContent;
     mockUpdateContent = updateContentModuleActual.updateContent;
     
-    // Now require the module under test
-    createReferendaFunction = require('./create').createReferenda;
+    createReferendaFunction = require('../../src/notion/create').createReferenda;
 
-    // Clear mocks
     mockFetchReferendumContent.mockClear();
     mockUpdateContent.mockClear();
-    mockedAxios.post.mockClear(); // Clear post mock on the correctly typed axios mock
+    mockedAxios.post.mockClear(); 
   });
 
   afterEach(() => { 
@@ -54,7 +44,6 @@ describe('Notion Integration - createReferenda', () => {
   });
   
   it('should create a new Notion page and add content successfully', async () => {
-    // Arrange
     const databaseId: NotionDatabaseId = 'test-db-id';
     const mockReferendum: PolkassemblyReferenda = {
       post_id: 123,
@@ -77,9 +66,9 @@ describe('Notion Integration - createReferenda', () => {
       content: '<p>This is the fetched HTML content.</p>',
       title: 'Original Title',
       beneficiaries: [], 
-      proposer: 'mockProposerForFetchedContent', // Ensuring proposer is present for calculateReward
+      proposer: 'mockProposerForFetchedContent',
       requested: '1000000000000', 
-      assetId: undefined, // Or a specific test assetId if a path in calculateReward depends on it
+      assetId: undefined, 
     };
     mockFetchReferendumContent.mockResolvedValue(mockFetchedContent);
 
@@ -91,10 +80,8 @@ describe('Notion Integration - createReferenda', () => {
     mockedAxios.post.mockResolvedValue(mockNotionPageCreateResponse);
     mockUpdateContent.mockResolvedValue(undefined);
 
-    // Act
     const newPageId = await createReferendaFunction(databaseId, mockReferendum, exchangeRate, network);
 
-    // Assert
     expect(mockFetchReferendumContent).toHaveBeenCalledWith(mockReferendum.post_id, mockReferendum.network);
     
     expect(mockedAxios.post).toHaveBeenCalledTimes(1);
@@ -123,5 +110,4 @@ describe('Notion Integration - createReferenda', () => {
     expect(newPageId).toBe('new-notion-page-id');
   });
 
-  // Add tests for failure modes (e.g., Notion API errors, fetchReferendumContent failure, updateContent failure)
 }); 

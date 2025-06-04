@@ -1,4 +1,4 @@
-import { fetchDotToUsdRate, fetchKusToUsdRate } from './utils';
+import { fetchDotToUsdRate, fetchKusToUsdRate } from '../../src/utils/utils';
 
 // Mocking global fetch
 global.fetch = jest.fn();
@@ -20,7 +20,7 @@ describe('CoinGecko Integration - Price Fetching', () => {
 
       // Act
       const rate = await fetchDotToUsdRate();
-
+      console.log('rate', rate);
       // Assert
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(fetch).toHaveBeenCalledWith('https://api.coingecko.com/api/v3/simple/price?ids=polkadot&vs_currencies=usd');
