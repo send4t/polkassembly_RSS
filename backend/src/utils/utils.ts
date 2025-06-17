@@ -157,6 +157,12 @@ export async function sleep(ms: number) {
 }
 
 export async function waitUntilStartMinute(): Promise<void> {
+    if (process.env.SKIP_WAIT) {
+        console.log("Skipping wait until start minute...");
+        return;
+    }
+
+    console.log("Waiting until start minute...");
     const startMinute = process.env.START_MINUTE ? parseInt(process.env.START_MINUTE, 10) : 0;
     const now = new Date();
     const currentMinute = now.getMinutes();
