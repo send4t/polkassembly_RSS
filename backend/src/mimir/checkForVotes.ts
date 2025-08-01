@@ -29,7 +29,7 @@ let isCheckingVotes = false;
 
 export async function checkForVotes(): Promise<void> {
   if (isCheckingVotes) {
-    console.log('Previous checkForVotes operation still running, skipping...');
+    logger.debug('Previous checkForVotes operation still running, skipping...');
     return;
   }
 
@@ -40,10 +40,10 @@ export async function checkForVotes(): Promise<void> {
     );
 
     if (readyProposals.length === 0) {
-      console.info("No ready proposals found.");
+      logger.info("No ready proposals found.");
       return;
     }
-    console.table(readyProposals);
+    logger.info({ proposalsCount: readyProposals.length, readyProposals }, "Ready proposals found");
 
     const votedPolkadot = await fetchActiveVotes(
       process.env.POLKADOT_MULTISIG as string,
@@ -66,21 +66,20 @@ export async function checkForVotes(): Promise<void> {
       const page = await findNotionPageByPostId(pages, refId);
 
       if (page) {
-        console.info(`Page found (checkForVotes): ${page.id}`);
+        logger.info({ pageId: page.id, refId }, `Page found for vote check`);
 
-        console.log("extrinsicMap", extrinsicMap);
-        console.log("extrinsicMap[refId]", extrinsicMap[refId]);
+        logger.debug({ extrinsicMap, refIdExtrinsic: extrinsicMap[refId] }, "Extrinsic mapping data");
 
         await updateNotionToVoted(page.id, proposal.voted, extrinsicMap[refId], page.properties?.["Chain"]?.select?.name as Chain);
-        console.info(`Notion page ${page.id} updated: ${proposal.voted}`);
+        logger.info({ pageId: page.id, voted: proposal.voted }, `Notion page updated with vote status`);
         readyProposals.splice(index, 1);
         await saveReadyProposalsToFile(readyProposals, READY_FILE as string);
       } else {
-        console.error("Page not found, id: ", refId);
+        logger.error({ refId }, "Page not found for referendum ID");
       }
     });
   } catch (error) {
-    console.error("Error checking vote statuses (checkForVotes):", error);
+    logger.error({ error }, "Error checking vote statuses (checkForVotes)");
   } finally {
     isCheckingVotes = false;
   }
@@ -97,7 +96,7 @@ async function fetchActiveVotes(
     const api = await ApiPromise.create({ provider: wsProvider });
 
     let allVotes: ReferendumId[] = [];
-    console.log(`Fetching votes for account: ${account}`);
+    logger.info({ account, network }, `Fetching votes for account`);
     for (const trackId of TRACKS) {
       const votingResult = (await api.query.convictionVoting.votingFor(
         account,
@@ -113,7 +112,7 @@ async function fetchActiveVotes(
 
     return allVotes;
   } catch (error) {
-    console.error(`Error checking vote for account ${account}:`, error);
+    logger.error({ error, account, network }, `Error checking vote for account`);
     throw error;
   }
 }
@@ -186,7 +185,7 @@ export async function updateNotionToVoted(
       ? (error as any).response.data
       : (error as any).message;
     
-    console.error('Error updating voting status:', errorMessage);
+    logger.error({ error: errorMessage, pageId }, 'Error updating voting status');
     throw new Error(`Failed to update Notion page voting status: ${errorMessage}`);
   }
 }
@@ -239,8 +238,8 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
     // Add nested extrinsics to the list
     for (const extrinsic of extrinsics) {
       if (extrinsic.params[0].name === 'calls') {
-        console.info("Adding nested extrinsics to list");
-        console.log("extrinsic.params[0].value", extrinsic.params[0].value);
+        logger.debug({ extrinsicHash: extrinsic.extrinsic_hash }, "Adding nested extrinsics to list");
+        logger.debug({ nestedCalls: extrinsic.params[0].value }, "Nested extrinsic calls");
 
         const nestedExtrinsics = extrinsic.params[0].value.map((nestedCall: any) => ({
           ...nestedCall,
@@ -259,10 +258,10 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
       if (extrinsic?.params?.[0]?.value?.[0]?.call_name === "vote") {
         rawReferendumId = extrinsic.params[0].value[0].params[0].value;
         referendumId = rawReferendumId ? Number(rawReferendumId) : null;
-        console.debug(`Vote call referendum ID: ${referendumId}`);
+        logger.debug({ referendumId, extrinsicHash: extrinsic.extrinsic_hash }, `Vote call referendum ID`);
       } else {
         referendumId = rawReferendumId ? Number(rawReferendumId) : null;
-        console.debug(`Regular referendum ID: ${referendumId}`);
+        logger.debug({ referendumId, extrinsicHash: extrinsic.extrinsic_hash }, `Regular referendum ID`);
       }
       
       if (referendumId !== null && votedList.includes(referendumId) && extrinsic.extrinsic_hash) {

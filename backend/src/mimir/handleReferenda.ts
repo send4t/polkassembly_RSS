@@ -7,6 +7,7 @@ import {
   SuggestedVote,
 } from "../types/properties";
 import { proposeVoteTransaction } from "./proposeVote";
+import { logger } from "../config/logger";
 
 /** Decides whether to send transaction to Mimir with true or false value, abstain will not send transaction. */
 export async function handleReferendaVote(
@@ -27,11 +28,11 @@ export async function handleReferendaVote(
     page.properties?.["Internal status"].status?.name ===
     InternalStatus.ReadyToVote
   ) {
-    console.info("This proposal is in ReadyToVote status.");
+    logger.info({ postId, network, pageId: page.id }, "Proposal is in ReadyToVote status");
     let ready: ReadyProposal | undefined = undefined;
     switch (page.properties?.["Suggested vote"].select?.name) {
       case SuggestedVote.Aye:
-        console.info("Sending transaction to Mimir (Aye) ...");
+        logger.info({ postId, network, vote: SuggestedVote.Aye }, "Sending transaction to Mimir (Aye)");
         ready = await proposeVoteTransaction(
           multisig,
           network,
@@ -40,7 +41,7 @@ export async function handleReferendaVote(
         );
         break;
       case SuggestedVote.Nay:
-        console.info("Sending transaction to Mimir (Nay) ...");
+        logger.info({ postId, network, vote: SuggestedVote.Nay }, "Sending transaction to Mimir (Nay)");
         ready = await proposeVoteTransaction(
           multisig,
           network,
@@ -49,7 +50,7 @@ export async function handleReferendaVote(
         );
         break;
       case SuggestedVote.Abstain:
-        console.info("Sending transaction to Mimir (Abstain) ...");
+        logger.info({ postId, network, vote: SuggestedVote.Abstain }, "Sending transaction to Mimir (Abstain)");
         ready = await proposeVoteTransaction(
           multisig,
           network,
@@ -58,11 +59,11 @@ export async function handleReferendaVote(
         );
         break;
       default:
-        console.error("No suggested vote found.");
-        console.error(
-          "Suggested vote field is: ",
-          page.properties?.["Suggested vote"].select?.name
-        );
+        logger.error({ 
+          postId, 
+          network, 
+          suggestedVote: page.properties?.["Suggested vote"].select?.name 
+        }, "No suggested vote found");
     }
 
     if (ready) {
