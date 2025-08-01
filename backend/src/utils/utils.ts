@@ -1,6 +1,9 @@
 import { Chain, Origin, TimelineStatus } from "../types/properties";
 import { priceCache } from './priceCache';
-import { logger } from '../config/logger';
+import { createSubsystemLogger, logError } from '../config/logger';
+import { Subsystem, ErrorType } from '../types/logging';
+
+const logger = createSubsystemLogger(Subsystem.UTILS);
 
 
 export function getValidatedOrigin(origin: string | undefined): Origin {
@@ -104,7 +107,7 @@ export function calculateReward(content: any, rate: number, network: Chain): num
                     logger.debug({ nativeValue, network, usdValue, rate }, `Calculated native token reward`);
                     totalUsdValue += usdValue;
                 } catch (error) {
-                    logger.warn({ error, beneficiary }, 'Malformed native token amount');
+                    logError(logger, { error, beneficiary }, 'Malformed native token amount', ErrorType.MALFORMED_AMOUNT);
                     hasUnknownFormat = true;
                 }
             } else {
@@ -128,12 +131,12 @@ export function calculateReward(content: any, rate: number, network: Chain): num
             logger.debug({ nativeValue, network, usdValue, rate }, `Calculated legacy native token reward`);
             totalUsdValue = usdValue;
         } catch (error) {
-            logger.warn({ error, requestedAmount: content.requested }, 'Malformed native token request');
+            logError(logger, { error, requestedAmount: content.requested }, 'Malformed native token request', ErrorType.MALFORMED_AMOUNT);
             hasUnknownFormat = true;
         }
     } else if (content.beneficiaries?.length > 0 || content.requested) {
-        // Has reward-related fields but in unknown format
-        logger.warn({ content }, 'Unknown reward format');
+        // Has reward-related fields but in unknown format - this is critical
+        logError(logger, { content }, 'Unknown reward format', ErrorType.UNKNOWN_REWARD_FORMAT);
         hasUnknownFormat = true;
     } else {
         // No reward information at all

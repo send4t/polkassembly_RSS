@@ -7,7 +7,10 @@ import {
   SuggestedVote,
 } from "../types/properties";
 import { proposeVoteTransaction } from "./proposeVote";
-import { logger } from "../config/logger";
+import { createSubsystemLogger, logError } from "../config/logger";
+import { Subsystem, ErrorType } from "../types/logging";
+
+const logger = createSubsystemLogger(Subsystem.MIMIR);
 
 /** Decides whether to send transaction to Mimir with true or false value, abstain will not send transaction. */
 export async function handleReferendaVote(
@@ -59,11 +62,11 @@ export async function handleReferendaVote(
         );
         break;
       default:
-        logger.error({ 
+        logError(logger, { 
           postId, 
           network, 
           suggestedVote: page.properties?.["Suggested vote"].select?.name 
-        }, "No suggested vote found");
+        }, "No suggested vote found", ErrorType.MISSING_VOTE);
     }
 
     if (ready) {

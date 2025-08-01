@@ -1,4 +1,7 @@
-import { logger } from '../config/logger';
+import { createSubsystemLogger, logError } from '../config/logger';
+import { Subsystem, ErrorType } from '../types/logging';
+
+const logger = createSubsystemLogger(Subsystem.RATE_LIMIT);
 
 export interface RateLimitConfig {
   maxRetries: number;
@@ -206,12 +209,12 @@ export class RateLimitHandler {
     };
     
     this.deadLetterQueue.set(operationId, deadLetterOp);
-    logger.error({ 
+    logError(logger, { 
       operationId, 
       operationType: context.operationType, 
       attempts: context.attempt,
       error: error.message 
-    }, `💀 Operation moved to dead letter queue`);
+    }, `💀 Operation moved to dead letter queue`, ErrorType.DEAD_LETTER);
   }
 
   /**

@@ -9,7 +9,10 @@ import { sendReadyProposalsToMimir } from "./mimir/refreshEndpoint";
 import { READY_CHECK_INTERVAL, SUCCESS_PAGE } from "./utils/constants";
 import { waitUntilStartMinute } from "./utils/utils";
 import { checkForVotes } from "./mimir/checkForVotes";
-import { logger } from "./config/logger";
+import { createSubsystemLogger } from "./config/logger";
+import { Subsystem } from "./types/logging";
+
+const logger = createSubsystemLogger(Subsystem.APP);
 
 const app = express();
 

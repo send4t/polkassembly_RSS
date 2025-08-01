@@ -5,7 +5,10 @@ import { findNotionPageByPostId, getNotionPages } from "./notion/findNotionPage"
 import { fetchDotToUsdRate, fetchKusToUsdRate } from "./utils/utils";
 import { updateReferenda } from "./notion/update";
 import { handleReferendaVote } from "./mimir/handleReferenda";
-import { logger } from "./config/logger";
+import { createSubsystemLogger } from "./config/logger";
+import { Subsystem } from "./types/logging";
+
+const logger = createSubsystemLogger(Subsystem.REFRESH);
 
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 

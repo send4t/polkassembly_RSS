@@ -22,7 +22,10 @@ import {
 } from "../utils/readyFileHandlers";
 import { RateLimitHandler } from "../utils/rateLimitHandler";
 import { RATE_LIMIT_CONFIGS } from "../config/rate-limit-config";
-import { logger } from "../config/logger";
+import { createSubsystemLogger, logError } from "../config/logger";
+import { Subsystem, ErrorType } from "../types/logging";
+
+const logger = createSubsystemLogger(Subsystem.MIMIR);
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 let isCheckingVotes = false;
@@ -75,7 +78,7 @@ export async function checkForVotes(): Promise<void> {
         readyProposals.splice(index, 1);
         await saveReadyProposalsToFile(readyProposals, READY_FILE as string);
       } else {
-        logger.error({ refId }, "Page not found for referendum ID");
+        logError(logger, { refId }, "Page not found for referendum ID", ErrorType.PAGE_NOT_FOUND);
       }
     });
   } catch (error) {

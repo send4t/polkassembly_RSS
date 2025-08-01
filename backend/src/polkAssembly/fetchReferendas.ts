@@ -1,7 +1,10 @@
 import axios from "axios";
 import { FetchReferendaReturnType, PolkassemblyReferenda, PostType } from "../types/polkassemly";
 import { Chain } from "../types/properties";
-import { logger } from "../config/logger";
+import { createSubsystemLogger, logError } from "../config/logger";
+import { Subsystem, ErrorType } from "../types/logging";
+
+const logger = createSubsystemLogger(Subsystem.POLKASSEMBLY);
 
 const TIMEOUT_MS = 10000; // 10 second timeout
 
@@ -22,7 +25,7 @@ export async function fetchDataFromAPI(limit: number = 200, network: Chain): Pro
 
     // Validate response structure
     if (!response.data || !Array.isArray(response.data.posts)) {
-      logger.error({ network, responseData: response.data }, "Invalid response structure from Polkassembly API");
+      logError(logger, { network, responseData: response.data }, "Invalid response structure from Polkassembly API", ErrorType.INVALID_RESPONSE);
       return {
         referendas: [],
         discussions: []
@@ -56,7 +59,7 @@ export async function fetchDataFromAPI(limit: number = 200, network: Chain): Pro
   } catch (error) {
     if (axios.isAxiosError(error)) {
       if (error.code === 'ECONNABORTED') {
-        logger.error({ network, timeout: TIMEOUT_MS }, "Timeout fetching data from Polkassembly API");
+        logError(logger, { network, timeout: TIMEOUT_MS }, "Timeout fetching data from Polkassembly API", ErrorType.TIMEOUT);
       } else if (error.response) {
         logger.error({ 
           network, 

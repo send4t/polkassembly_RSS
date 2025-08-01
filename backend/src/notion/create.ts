@@ -7,7 +7,10 @@ import { updateContent } from './updateContent';
 import { fetchReferendumContent } from '../polkAssembly/fetchReferendas';
 import { RateLimitHandler } from '../utils/rateLimitHandler';
 import { RATE_LIMIT_CONFIGS } from '../config/rate-limit-config';
-import { logger } from '../config/logger';
+import { createSubsystemLogger } from '../config/logger';
+import { Subsystem } from '../types/logging';
+
+const logger = createSubsystemLogger(Subsystem.NOTION);
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 

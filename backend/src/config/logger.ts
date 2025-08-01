@@ -1,5 +1,6 @@
 import pino from 'pino';
 import { hostname } from 'os';
+import { Subsystem, ErrorType } from '../types/logging';
 
 // Detect if running under PM2 or in an environment that needs JSON logs
 const isProduction = process.env.NODE_ENV === 'production';
@@ -31,6 +32,25 @@ const loggerConfig = {
   timestamp: pino.stdTimeFunctions.isoTime,
 };
 
-export const logger = pino(loggerConfig);
+// Create the base logger instance
+const baseLogger = pino(loggerConfig);
 
-export default logger; 
+// Create subsystem loggers
+export const createSubsystemLogger = (subsystem: Subsystem) => {
+  return baseLogger.child({ subsystem });
+};
+
+// Helper function for critical errors with types
+export const logError = (
+  subsystemLogger: pino.Logger, 
+  context: Record<string, any>, 
+  message: string, 
+  errorType?: ErrorType
+) => {
+  const logContext = errorType ? { ...context, type: errorType } : context;
+  subsystemLogger.error(logContext, message);
+};
+
+// Export the base logger and convenience logger
+export const logger = baseLogger;
+export default baseLogger; 
