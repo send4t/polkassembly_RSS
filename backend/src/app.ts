@@ -11,7 +11,6 @@ import { waitUntilStartMinute } from "./utils/utils";
 import { checkForVotes } from "./mimir/checkForVotes";
 import { createSubsystemLogger } from "./config/logger";
 import { Subsystem } from "./types/logging";
-
 const logger = createSubsystemLogger(Subsystem.APP);
 
 const app = express();
