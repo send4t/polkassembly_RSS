@@ -9,6 +9,7 @@ import { sendReadyProposalsToMimir } from "./mimir/refreshEndpoint";
 import { READY_CHECK_INTERVAL, SUCCESS_PAGE } from "./utils/constants";
 import { waitUntilStartMinute } from "./utils/utils";
 import { checkForVotes } from "./mimir/checkForVotes";
+import { logger } from "./config/logger";
 
 const app = express();
 
@@ -28,25 +29,25 @@ app.get("/send-to-mimir", async (req: Request, res: Response) => {
 
 async function main() {
   try {
-    console.log("Waiting until the start minute...");
+    logger.info("Waiting until the start minute...");
     checkForVotes(); // check for votes immediately
 
     await waitUntilStartMinute();
 
-    console.log("Refreshing referendas...");
+    logger.info("Refreshing referendas...");
     refreshReferendas(); // with 7 app instances, we can't start all of them at the same time (because of the rate limit)
 
-    console.log("Starting periodic referenda refresh...");
+    logger.info("Starting periodic referenda refresh...");
     setInterval(refreshReferendas, Number(process.env.REFRESH_INTERVAL) * 1000);
 
     setInterval(() => checkForVotes(), Number(READY_CHECK_INTERVAL) * 1000);
 
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
-      console.log(`OpenGov Voting tool is running, port: ${PORT}`);
+      logger.info(`OpenGov Voting tool is running, port: ${PORT}`);
     });
   } catch (error) {
-    console.error("Fatal error in main():", error);
+    logger.error({ error }, "Fatal error in main()");
     process.exit(1);
   }
 }

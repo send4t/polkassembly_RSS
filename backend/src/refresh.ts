@@ -5,13 +5,14 @@ import { findNotionPageByPostId, getNotionPages } from "./notion/findNotionPage"
 import { fetchDotToUsdRate, fetchKusToUsdRate } from "./utils/utils";
 import { updateReferenda } from "./notion/update";
 import { handleReferendaVote } from "./mimir/handleReferenda";
+import { logger } from "./config/logger";
 
 const notionDatabaseId = process.env.NOTION_DATABASE_ID;
 
 export async function refreshReferendas() {
     try {
         if (!notionDatabaseId) throw "Please specify REFRESH_INTERVAL in .env!";
-        console.log("Refreshing Referendas...")
+        logger.info("Refreshing Referendas...")
 
         // Fetch latest proposals from both networks, get list of Notion pages and fetch exchange rates
         const [polkadotPosts, kusamaPosts, pages, dotUsdRate, kusUsdRate] = await Promise.all([
@@ -32,22 +33,22 @@ export async function refreshReferendas() {
             const exchangeRate = referenda.network === Chain.Polkadot ?dotUsdRate : kusUsdRate;
 
             if (found) {
-                console.log(`Proposal ${referenda.post_id} found in Notion.`);
+                logger.info({ postId: referenda.post_id }, `Proposal found in Notion`);
                 try {
                     await updateReferenda(found.id, referenda, exchangeRate, referenda.network);
                 } catch (error) {
-                    console.error("Error updating referenda: ", (error as any).message);
+                    logger.error({ postId: referenda.post_id, error: (error as any).message }, "Error updating referenda");
                 }
             } else {
-                console.log(`This proposal is not in Notion. ${referenda.post_id}`);
+                logger.info({ postId: referenda.post_id }, `Proposal not in Notion, creating new page`);
                 try {
                     await createReferenda(notionDatabaseId, referenda, exchangeRate, referenda.network);
                 } catch (error) {
-                    console.error("Error creating referenda: ", (error as any).message);
+                    logger.error({ postId: referenda.post_id, error: (error as any).message }, "Error creating referenda");
                 }
             }
         }
     } catch (error) {
-        console.error("Error while refreshing Referendas: ", (error as any).message);
+        logger.error({ error: (error as any).message }, "Error while refreshing Referendas");
     }
 }

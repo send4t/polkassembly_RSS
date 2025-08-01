@@ -22,6 +22,7 @@ import {
 } from "../utils/readyFileHandlers";
 import { RateLimitHandler } from "../utils/rateLimitHandler";
 import { RATE_LIMIT_CONFIGS } from "../config/rate-limit-config";
+import { logger } from "../config/logger";
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 let isCheckingVotes = false;
