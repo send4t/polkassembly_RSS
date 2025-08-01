@@ -3,6 +3,10 @@ import { convertHtmlToNotionBlocks } from "../utils/html";
 import { NotionPageId } from "../types/notion";
 import { RateLimitHandler } from "../utils/rateLimitHandler";
 import { RATE_LIMIT_CONFIGS } from "../config/rate-limit-config";
+import { createSubsystemLogger } from "../config/logger";
+import { Subsystem } from "../types/logging";
+
+const logger = createSubsystemLogger(Subsystem.NOTION);
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 
@@ -50,7 +54,7 @@ export async function updateContent(pageId: NotionPageId, content: string) {
     const newDescriptionBlocks = convertHtmlToNotionBlocks(content);
 
     if (newDescriptionBlocks.length === 0) {
-      console.log("No content to update.");
+      logger.debug({ pageId }, "No content to update");
       return;
     }
 
@@ -73,13 +77,11 @@ export async function updateContent(pageId: NotionPageId, content: string) {
       `patch-content-${pageId}`
     );
 
-    console.log(`Description updated successfully for proposal ${pageId}`);
+    logger.info({ pageId, blocksCount: newDescriptionBlocks.length }, `Description updated successfully`);
   } catch (error) {
-    console.error(
-      "Error updating content:",
-      (error as any).response
-        ? (error as any).response.data
-        : (error as any).message
-    );
+    logger.error({ 
+      pageId,
+      error: (error as any).response ? (error as any).response.data : (error as any).message
+    }, "Error updating content");
   }
 }

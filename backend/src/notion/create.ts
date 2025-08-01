@@ -7,6 +7,10 @@ import { updateContent } from './updateContent';
 import { fetchReferendumContent } from '../polkAssembly/fetchReferendas';
 import { RateLimitHandler } from '../utils/rateLimitHandler';
 import { RATE_LIMIT_CONFIGS } from '../config/rate-limit-config';
+import { createSubsystemLogger } from '../config/logger';
+import { Subsystem } from '../types/logging';
+
+const logger = createSubsystemLogger(Subsystem.NOTION);
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 
@@ -60,11 +64,19 @@ export async function createReferenda(
     // Add content to the newly created page
     await updateContent(response.data.id, contentResp.content);
 
-    console.log('Page created successfully:', response.data);
+    logger.info({ 
+      pageId: response.data.id, 
+      postId: referenda.post_id, 
+      network 
+    }, 'Page created successfully');
     return response.data.id;
 
   } catch (error) {
-    console.error('Error creating page:', (error as any).response ? (error as any).response.data : (error as any).message);
+    logger.error({ 
+      postId: referenda.post_id, 
+      network,
+      error: (error as any).response ? (error as any).response.data : (error as any).message 
+    }, 'Error creating page');
     throw error;
   }
 }

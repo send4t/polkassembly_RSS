@@ -1,4 +1,5 @@
 import { RateLimitConfig } from '../utils/rateLimitHandler';
+import { logger } from './logger';
 
 /**
  * Rate limiting configurations for different operation types
@@ -41,7 +42,7 @@ export const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
 export function getRateLimitConfig(operationType: keyof typeof RATE_LIMIT_CONFIGS): RateLimitConfig {
   const config = RATE_LIMIT_CONFIGS[operationType];
   if (!config) {
-    console.warn(`Unknown operation type: ${operationType}, using interactive config`);
+    logger.warn({ operationType }, `Unknown operation type, using interactive config`);
     return RATE_LIMIT_CONFIGS.interactive;
   }
   return config;

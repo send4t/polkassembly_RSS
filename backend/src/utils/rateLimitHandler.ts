@@ -1,3 +1,8 @@
+import { createSubsystemLogger, logError } from '../config/logger';
+import { Subsystem, ErrorType } from '../types/logging';
+
+const logger = createSubsystemLogger(Subsystem.RATE_LIMIT);
+
 export interface RateLimitConfig {
   maxRetries: number;
   baseDelay: number; // milliseconds
@@ -62,7 +67,7 @@ export class RateLimitHandler {
         
         // Log successful operation
         if (attempt > 1) {
-          console.log(`✅ Operation succeeded after ${attempt} attempts (${config.operationType})`);
+          logger.info({ attempt, operationType: config.operationType }, `✅ Operation succeeded after ${attempt} attempts`);
         }
         
         return result;
@@ -90,7 +95,12 @@ export class RateLimitHandler {
         // Calculate delay for next attempt
         const delay = this.calculateDelay(error, attempt, config);
         
-        console.log(`⏳ Rate limited (${config.operationType}), retrying in ${delay}ms (attempt ${attempt}/${config.maxRetries})`);
+        logger.warn({ 
+          operationType: config.operationType, 
+          delay, 
+          attempt, 
+          maxRetries: config.maxRetries 
+        }, `⏳ Rate limited, retrying in ${delay}ms`);
         
         await this.sleep(delay);
       }
@@ -110,7 +120,7 @@ export class RateLimitHandler {
   ): Promise<T> {
     // Check if same operation is already running
     if (this.requestQueue.has(operationKey)) {
-      console.log(`🔄 Deduplicating operation: ${operationKey}`);
+      logger.debug({ operationKey }, `🔄 Deduplicating operation`);
       return await this.requestQueue.get(operationKey)!;
     }
 
@@ -199,7 +209,12 @@ export class RateLimitHandler {
     };
     
     this.deadLetterQueue.set(operationId, deadLetterOp);
-    console.error(`💀 Operation ${operationId} moved to dead letter queue after ${context.attempt} attempts`);
+    logError(logger, { 
+      operationId, 
+      operationType: context.operationType, 
+      attempts: context.attempt,
+      error: error.message 
+    }, `💀 Operation moved to dead letter queue`, ErrorType.DEAD_LETTER);
   }
 
   /**
@@ -232,7 +247,7 @@ export class RateLimitHandler {
   clearDeadLetters(): number {
     const count = this.deadLetterQueue.size;
     this.deadLetterQueue.clear();
-    console.log(`🧹 Cleared ${count} dead letter operations`);
+    logger.info({ count }, `🧹 Cleared dead letter operations`);
     return count;
   }
 
@@ -242,7 +257,7 @@ export class RateLimitHandler {
   removeDeadLetter(operationId: string): boolean {
     const removed = this.deadLetterQueue.delete(operationId);
     if (removed) {
-      console.log(`🗑️ Removed dead letter operation: ${operationId}`);
+      logger.info({ operationId }, `🗑️ Removed dead letter operation`);
     }
     return removed;
   }

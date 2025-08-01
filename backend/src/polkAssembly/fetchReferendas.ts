@@ -1,6 +1,10 @@
 import axios from "axios";
 import { FetchReferendaReturnType, PolkassemblyReferenda, PostType } from "../types/polkassemly";
 import { Chain } from "../types/properties";
+import { createSubsystemLogger, logError } from "../config/logger";
+import { Subsystem, ErrorType } from "../types/logging";
+
+const logger = createSubsystemLogger(Subsystem.POLKASSEMBLY);
 
 const TIMEOUT_MS = 10000; // 10 second timeout
 
@@ -21,7 +25,7 @@ export async function fetchDataFromAPI(limit: number = 200, network: Chain): Pro
 
     // Validate response structure
     if (!response.data || !Array.isArray(response.data.posts)) {
-      console.error("Invalid response structure from Polkassembly API");
+      logError(logger, { network, responseData: response.data }, "Invalid response structure from Polkassembly API", ErrorType.INVALID_RESPONSE);
       return {
         referendas: [],
         discussions: []
@@ -42,7 +46,7 @@ export async function fetchDataFromAPI(limit: number = 200, network: Chain): Pro
           discussions.push(post);
         }
       } catch (postError) {
-        console.error("Error processing post:", postError);
+        logger.error({ postError, post, network }, "Error processing post");
         // Continue processing other posts
       }
     }
@@ -55,16 +59,21 @@ export async function fetchDataFromAPI(limit: number = 200, network: Chain): Pro
   } catch (error) {
     if (axios.isAxiosError(error)) {
       if (error.code === 'ECONNABORTED') {
-        console.error("Timeout fetching data from Polkassembly API");
+        logError(logger, { network, timeout: TIMEOUT_MS }, "Timeout fetching data from Polkassembly API", ErrorType.TIMEOUT);
       } else if (error.response) {
-        console.error("Error response from Polkassembly API:", error.response.status, error.response.statusText);
+        logger.error({ 
+          network, 
+          status: error.response.status, 
+          statusText: error.response.statusText,
+          data: error.response.data 
+        }, "Error response from Polkassembly API");
       } else if (error.request) {
-        console.error("No response received from Polkassembly API");
+        logger.error({ network, request: error.request }, "No response received from Polkassembly API");
       } else {
-        console.error("Error setting up request to Polkassembly API:", error.message);
+        logger.error({ network, message: error.message }, "Error setting up request to Polkassembly API");
       }
     } else {
-      console.error("Unexpected error fetching data from Polkassembly API:", (error as Error).message);
+      logger.error({ network, error: (error as Error).message }, "Unexpected error fetching data from Polkassembly API");
     }
     return {
       referendas: [],
@@ -97,16 +106,21 @@ export async function fetchReferendumContent(postId: number, network: Chain) {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       if (error.code === 'ECONNABORTED') {
-        console.error("Timeout fetching referendum content");
+        logger.error({ postId, network, timeout: TIMEOUT_MS }, "Timeout fetching referendum content");
       } else if (error.response) {
-        console.error("Error response fetching referendum content:", error.response.status, error.response.statusText);
+        logger.error({ 
+          postId, 
+          network, 
+          status: error.response.status, 
+          statusText: error.response.statusText 
+        }, "Error response fetching referendum content");
       } else if (error.request) {
-        console.error("No response received when fetching referendum content");
+        logger.error({ postId, network }, "No response received when fetching referendum content");
       } else {
-        console.error("Error setting up request for referendum content:", error.message);
+        logger.error({ postId, network, message: error.message }, "Error setting up request for referendum content");
       }
     } else {
-      console.error('Unexpected error fetching referendum content:', (error as Error).message);
+      logger.error({ postId, network, error: (error as Error).message }, 'Unexpected error fetching referendum content');
     }
     return { content: 'No content available' };
   }

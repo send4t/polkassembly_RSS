@@ -1,5 +1,9 @@
 import { Chain, Origin, TimelineStatus } from "../types/properties";
 import { priceCache } from './priceCache';
+import { createSubsystemLogger, logError } from '../config/logger';
+import { Subsystem, ErrorType } from '../types/logging';
+
+const logger = createSubsystemLogger(Subsystem.UTILS);
 
 
 export function getValidatedOrigin(origin: string | undefined): Origin {
@@ -38,11 +42,11 @@ export async function fetchDotToUsdRate(): Promise<number> {
             priceCache.setPrice(Chain.Polkadot, rate);
             return rate;
         }
-        console.error('Error fetching DOT/USD rate: Invalid data structure received from CoinGecko', data);
+        logger.error({ data }, 'Error fetching DOT/USD rate: Invalid data structure received from CoinGecko');
         return priceCache.getPrice(Chain.Polkadot);
     } catch (error) {
         if (!(error instanceof Error && error.message.startsWith('Error fetching DOT/USD rate:'))) {
-             console.error('Error fetching DOT/USD rate:', (error as any).message);
+             logger.error({ error: (error as any).message }, 'Error fetching DOT/USD rate');
         }
         return priceCache.getPrice(Chain.Polkadot);
     }
@@ -62,11 +66,11 @@ export async function fetchKusToUsdRate(): Promise<number> {
             priceCache.setPrice(Chain.Kusama, rate);
             return rate;
         }
-        console.error('Error fetching KSM/USD rate: Invalid data structure received from CoinGecko', data);
+        logger.error({ data }, 'Error fetching KSM/USD rate: Invalid data structure received from CoinGecko');
         return priceCache.getPrice(Chain.Kusama);
     } catch (error) {
         if (!(error instanceof Error && error.message.startsWith('Error fetching KSM/USD rate:'))) {
-            console.error('Error fetching KSM/USD rate:', (error as any).message);
+            logger.error({ error: (error as any).message }, 'Error fetching KSM/USD rate');
         }
         return priceCache.getPrice(Chain.Kusama);
     }
@@ -86,7 +90,7 @@ export function calculateReward(content: any, rate: number, network: Chain): num
             if (assetId === '1984' || assetId === '1337') {
                 // USDT/USDC amount (6 decimals)
                 const usdtAmount = Number((BigInt(beneficiary.amount) / BigInt(1e6)).toString());
-                console.log(`${usdtAmount} ${assetIdToTicker(assetId)}`);
+                logger.debug({ usdtAmount, assetId, ticker: assetIdToTicker(assetId) }, `Calculated stablecoin reward`);
                 totalUsdValue += usdtAmount;
             } else if (!assetId) {
                 // Native token amount (DOT/KSM)
@@ -100,15 +104,15 @@ export function calculateReward(content: any, rate: number, network: Chain): num
                     
                     const nativeValue = Number(nativeAmount);
                     const usdValue = nativeValue * rate;
-                    console.log(`${nativeValue} ${network} ($${usdValue} USD)`);
+                    logger.debug({ nativeValue, network, usdValue, rate }, `Calculated native token reward`);
                     totalUsdValue += usdValue;
                 } catch (error) {
-                    console.log('Malformed native token amount:', error);
+                    logError(logger, { error, beneficiary }, 'Malformed native token amount', ErrorType.MALFORMED_AMOUNT);
                     hasUnknownFormat = true;
                 }
             } else {
                 // Unknown asset ID format
-                console.log(`Unknown asset ID: ${assetId}`);
+                logger.warn({ assetId }, `Unknown asset ID`);
                 hasUnknownFormat = true;
             }
         }
@@ -124,19 +128,19 @@ export function calculateReward(content: any, rate: number, network: Chain): num
 
             const nativeValue = Number(nativeAmount);
             const usdValue = nativeValue * rate;
-            console.log(`${nativeValue} ${network} ($${usdValue} USD)`);
+            logger.debug({ nativeValue, network, usdValue, rate }, `Calculated legacy native token reward`);
             totalUsdValue = usdValue;
         } catch (error) {
-            console.log('Malformed native token request:', error);
+            logError(logger, { error, requestedAmount: content.requested }, 'Malformed native token request', ErrorType.MALFORMED_AMOUNT);
             hasUnknownFormat = true;
         }
     } else if (content.beneficiaries?.length > 0 || content.requested) {
-        // Has reward-related fields but in unknown format
-        console.log('Unknown reward format');
+        // Has reward-related fields but in unknown format - this is critical
+        logError(logger, { content }, 'Unknown reward format', ErrorType.UNKNOWN_REWARD_FORMAT);
         hasUnknownFormat = true;
     } else {
         // No reward information at all
-        console.log('No reward information available');
+        logger.debug('No reward information available');
         return 0;
     }
 
@@ -158,11 +162,11 @@ export async function sleep(ms: number) {
 
 export async function waitUntilStartMinute(): Promise<void> {
     if (process.env.SKIP_WAIT) {
-        console.log("Skipping wait until start minute...");
+        logger.info("Skipping wait until start minute...");
         return;
     }
 
-    console.log("Waiting until start minute...");
+    logger.info("Waiting until start minute...");
     const startMinute = process.env.START_MINUTE ? parseInt(process.env.START_MINUTE, 10) : 0;
     const now = new Date();
     const currentMinute = now.getMinutes();
@@ -171,9 +175,9 @@ export async function waitUntilStartMinute(): Promise<void> {
     
     if (currentMinute !== startMinute) {
         waitTime = ((startMinute - currentMinute + 60) % 60) * 60 * 1000; // Convert to milliseconds
-        console.log(`Waiting ${waitTime / 1000} seconds until START_MINUTE (${startMinute})`);
+        logger.info({ waitTimeSeconds: waitTime / 1000, startMinute }, `Waiting until START_MINUTE`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
     }
 
-    console.log(`Reached START_MINUTE: ${startMinute}, proceeding...`);
+    logger.info({ startMinute }, `Reached START_MINUTE, proceeding...`);
 }
