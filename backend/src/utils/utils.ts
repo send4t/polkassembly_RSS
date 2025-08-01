@@ -1,4 +1,9 @@
 import { Chain, Origin, TimelineStatus } from "../types/properties";
+import { priceCache } from './priceCache';
+import { createSubsystemLogger, logError } from '../config/logger';
+import { Subsystem, ErrorType } from '../types/logging';
+
+const logger = createSubsystemLogger(Subsystem.UTILS);
 
 
 export function getValidatedOrigin(origin: string | undefined): Origin {
@@ -13,8 +18,8 @@ export function getValidatedOrigin(origin: string | undefined): Origin {
 }
 
 export function getValidatedStatus(status: string | undefined): TimelineStatus {
-    if (!status) throw new Error("No VoteStatus found");            // probably return some default value, but this way we are not saying incorrect things
-
+    if (!status) throw new Error("No VoteStatus found");  
+    
     if (Object.values(TimelineStatus).includes(status as TimelineStatus)) {
         return status as TimelineStatus;
     }
@@ -26,11 +31,24 @@ export function getValidatedStatus(status: string | undefined): TimelineStatus {
 export async function fetchDotToUsdRate(): Promise<number> {
     try {
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=polkadot&vs_currencies=usd');
+        if (!response.ok) {
+            const errorText = response.statusText || `HTTP error! status: ${response.status}`;
+            throw new Error(`Error fetching DOT/USD rate: ${errorText}`);
+        }
         const data = await response.json();
-        return data.polkadot.usd || 0;
+      
+        if (data && data.polkadot && typeof data.polkadot.usd === 'number') {
+            const rate = data.polkadot.usd;
+            priceCache.setPrice(Chain.Polkadot, rate);
+            return rate;
+        }
+        logger.error({ data }, 'Error fetching DOT/USD rate: Invalid data structure received from CoinGecko');
+        return priceCache.getPrice(Chain.Polkadot);
     } catch (error) {
-        console.error('Error fetching DOT/USD rate:', (error as any).message);
-        throw error;
+        if (!(error instanceof Error && error.message.startsWith('Error fetching DOT/USD rate:'))) {
+             logger.error({ error: (error as any).message }, 'Error fetching DOT/USD rate');
+        }
+        return priceCache.getPrice(Chain.Polkadot);
     }
 }
 
@@ -38,42 +56,97 @@ export async function fetchDotToUsdRate(): Promise<number> {
 export async function fetchKusToUsdRate(): Promise<number> {
     try {
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=kusama&vs_currencies=usd');
+        if (!response.ok) {
+            const errorText = response.statusText || `HTTP error! status: ${response.status}`;
+            throw new Error(`Error fetching KSM/USD rate: ${errorText}`);
+        }
         const data = await response.json();
-        return data.kusama.usd || 0;
+        if (data && data.kusama && typeof data.kusama.usd === 'number') {
+            const rate = data.kusama.usd;
+            priceCache.setPrice(Chain.Kusama, rate);
+            return rate;
+        }
+        logger.error({ data }, 'Error fetching KSM/USD rate: Invalid data structure received from CoinGecko');
+        return priceCache.getPrice(Chain.Kusama);
     } catch (error) {
-        console.error('Error fetching KUS/USD rate:', (error as any).message);
-        throw error;
+        if (!(error instanceof Error && error.message.startsWith('Error fetching KSM/USD rate:'))) {
+            logger.error({ error: (error as any).message }, 'Error fetching KSM/USD rate');
+        }
+        return priceCache.getPrice(Chain.Kusama);
     }
 }
 
 /** Calculate requested amount (in $) */ 
-export function calculateReward(content: any, rate: number,  network: Chain): number {
+export function calculateReward(content: any, rate: number, network: Chain): number {
+    let totalUsdValue = 0;
+    let hasUnknownFormat = false;
 
+    // Check for beneficiaries with stablecoin or native token requests
     if (content.beneficiaries && content.beneficiaries.length > 0) {
-        const beneficiary = content.beneficiaries[0];
-        if (content.assetId === '1984' || content.assetId === '1337') {
-            const usdtAmount = Number((BigInt(beneficiary.amount) / BigInt(1e6)).toString());
-
-            console.log(`${usdtAmount} ${assetIdToTicker(content.assetId)}`);
-            return usdtAmount;
+        for (const beneficiary of content.beneficiaries) {
+            // Check both possible locations for asset ID
+            const assetId = content.assetId || beneficiary.genralIndex;
+            
+            if (assetId === '1984' || assetId === '1337') {
+                // USDT/USDC amount (6 decimals)
+                const usdtAmount = Number((BigInt(beneficiary.amount) / BigInt(1e6)).toString());
+                logger.debug({ usdtAmount, assetId, ticker: assetIdToTicker(assetId) }, `Calculated stablecoin reward`);
+                totalUsdValue += usdtAmount;
+            } else if (!assetId) {
+                // Native token amount (DOT/KSM)
+                try {
+                    let nativeAmount = BigInt(0);
+                    if (network === Chain.Polkadot) {
+                        nativeAmount = BigInt(beneficiary.amount) / BigInt(1e10);
+                    } else if (network === Chain.Kusama) {
+                        nativeAmount = BigInt(beneficiary.amount) / BigInt(1e12);
+                    }
+                    
+                    const nativeValue = Number(nativeAmount);
+                    const usdValue = nativeValue * rate;
+                    logger.debug({ nativeValue, network, usdValue, rate }, `Calculated native token reward`);
+                    totalUsdValue += usdValue;
+                } catch (error) {
+                    logError(logger, { error, beneficiary }, 'Malformed native token amount', ErrorType.MALFORMED_AMOUNT);
+                    hasUnknownFormat = true;
+                }
+            } else {
+                // Unknown asset ID format
+                logger.warn({ assetId }, `Unknown asset ID`);
+                hasUnknownFormat = true;
+            }
         }
-    }
-    
-    if (content.proposer && content.requested) {
-        let nativeAmount = BigInt(0);
-        if (network === Chain.Polkadot) nativeAmount = BigInt(content.requested) / BigInt(1e10);
-        if (network === Chain.Kusama) nativeAmount = BigInt(content.requested) / BigInt(1e12);
+    } else if (content.proposer && content.requested && typeof content.requested === 'string') {
+        // Legacy format for native token requests
+        try {
+            let nativeAmount = BigInt(0);
+            if (network === Chain.Polkadot) {
+                nativeAmount = BigInt(content.requested) / BigInt(1e10);
+            } else if (network === Chain.Kusama) {
+                nativeAmount = BigInt(content.requested) / BigInt(1e12);
+            }
 
-        const scaledRate = Math.round(rate * 100);
-        const usdAmount = (nativeAmount * BigInt(scaledRate)) / BigInt(100);
-        const usdValue = Number(usdAmount)//.toFixed(2);
-
-        console.log(`$${usdValue} USD`);
-        return usdValue;
+            const nativeValue = Number(nativeAmount);
+            const usdValue = nativeValue * rate;
+            logger.debug({ nativeValue, network, usdValue, rate }, `Calculated legacy native token reward`);
+            totalUsdValue = usdValue;
+        } catch (error) {
+            logError(logger, { error, requestedAmount: content.requested }, 'Malformed native token request', ErrorType.MALFORMED_AMOUNT);
+            hasUnknownFormat = true;
+        }
+    } else if (content.beneficiaries?.length > 0 || content.requested) {
+        // Has reward-related fields but in unknown format - this is critical
+        logError(logger, { content }, 'Unknown reward format', ErrorType.UNKNOWN_REWARD_FORMAT);
+        hasUnknownFormat = true;
+    } else {
+        // No reward information at all
+        logger.debug('No reward information available');
+        return 0;
     }
-    
-    console.log('No reward information available');
-    return 0;
+
+
+    // Return 0 if we encountered any unknown formats, otherwise return the total USD value
+    return hasUnknownFormat ? 0 : totalUsdValue;
 }
 
 function assetIdToTicker(assetId: string): string {
@@ -88,6 +161,12 @@ export async function sleep(ms: number) {
 }
 
 export async function waitUntilStartMinute(): Promise<void> {
+    if (process.env.SKIP_WAIT) {
+        logger.info("Skipping wait until start minute...");
+        return;
+    }
+
+    logger.info("Waiting until start minute...");
     const startMinute = process.env.START_MINUTE ? parseInt(process.env.START_MINUTE, 10) : 0;
     const now = new Date();
     const currentMinute = now.getMinutes();
@@ -96,9 +175,9 @@ export async function waitUntilStartMinute(): Promise<void> {
     
     if (currentMinute !== startMinute) {
         waitTime = ((startMinute - currentMinute + 60) % 60) * 60 * 1000; // Convert to milliseconds
-        console.log(`Waiting ${waitTime / 1000} seconds until START_MINUTE (${startMinute})`);
+        logger.info({ waitTimeSeconds: waitTime / 1000, startMinute }, `Waiting until START_MINUTE`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
     }
 
-    console.log(`Reached START_MINUTE: ${startMinute}, proceeding...`);
+    logger.info({ startMinute }, `Reached START_MINUTE, proceeding...`);
 }

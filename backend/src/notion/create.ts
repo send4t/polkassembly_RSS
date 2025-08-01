@@ -5,6 +5,12 @@ import { calculateReward, getValidatedOrigin, getValidatedStatus } from '../util
 import { PolkassemblyReferenda } from '../types/polkassemly';
 import { updateContent } from './updateContent';
 import { fetchReferendumContent } from '../polkAssembly/fetchReferendas';
+import { RateLimitHandler } from '../utils/rateLimitHandler';
+import { RATE_LIMIT_CONFIGS } from '../config/rate-limit-config';
+import { createSubsystemLogger } from '../config/logger';
+import { Subsystem } from '../types/logging';
+
+const logger = createSubsystemLogger(Subsystem.NOTION);
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 
@@ -37,24 +43,40 @@ export async function createReferenda(
   // Prepare the data for Notion
   const data = prepareNotionData(databaseId, properties);
 
-  // Send request to Notion
+  // Send request to Notion with rate limiting
   try {
-    const response = await axios.post(notionApiUrl, data, {
-      headers: {
-        'Authorization': `Bearer ${notionApiToken}`,
-        'Content-Type': 'application/json',
-        'Notion-Version': process.env.NOTION_VERSION,
+    const rateLimitHandler = RateLimitHandler.getInstance();
+    
+    const response = await rateLimitHandler.executeWithRateLimit(
+      async () => {
+        return await axios.post(notionApiUrl, data, {
+          headers: {
+            'Authorization': `Bearer ${notionApiToken}`,
+            'Content-Type': 'application/json',
+            'Notion-Version': process.env.NOTION_VERSION,
+          },
+        });
       },
-    });
+      RATE_LIMIT_CONFIGS.critical,
+      `create-referenda-${referenda.post_id}`
+    );
     
     // Add content to the newly created page
     await updateContent(response.data.id, contentResp.content);
 
-    console.log('Page created successfully:', response.data);
+    logger.info({ 
+      pageId: response.data.id, 
+      postId: referenda.post_id, 
+      network 
+    }, 'Page created successfully');
     return response.data.id;
 
   } catch (error) {
-    console.error('Error creating page:', (error as any).response ? (error as any).response.data : (error as any).message);
+    logger.error({ 
+      postId: referenda.post_id, 
+      network,
+      error: (error as any).response ? (error as any).response.data : (error as any).message 
+    }, 'Error creating page');
     throw error;
   }
 }

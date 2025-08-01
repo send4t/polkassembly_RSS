@@ -20,14 +20,19 @@ import {
   loadReadyProposalsFromFile,
   saveReadyProposalsToFile,
 } from "../utils/readyFileHandlers";
-import { sleep } from "../utils/utils";
+import { RateLimitHandler } from "../utils/rateLimitHandler";
+import { RATE_LIMIT_CONFIGS } from "../config/rate-limit-config";
+import { createSubsystemLogger, logError } from "../config/logger";
+import { Subsystem, ErrorType } from "../types/logging";
+
+const logger = createSubsystemLogger(Subsystem.MIMIR);
 
 const notionApiToken = process.env.NOTION_API_TOKEN;
 let isCheckingVotes = false;
 
 export async function checkForVotes(): Promise<void> {
   if (isCheckingVotes) {
-    console.log('Previous checkForVotes operation still running, skipping...');
+    logger.debug('Previous checkForVotes operation still running, skipping...');
     return;
   }
 
@@ -38,10 +43,10 @@ export async function checkForVotes(): Promise<void> {
     );
 
     if (readyProposals.length === 0) {
-      console.info("No ready proposals found.");
+      logger.info("No ready proposals found.");
       return;
     }
-    console.table(readyProposals);
+    logger.info({ proposalsCount: readyProposals.length, readyProposals }, "Ready proposals found");
 
     const votedPolkadot = await fetchActiveVotes(
       process.env.POLKADOT_MULTISIG as string,
@@ -64,21 +69,20 @@ export async function checkForVotes(): Promise<void> {
       const page = await findNotionPageByPostId(pages, refId);
 
       if (page) {
-        console.info(`Page found (checkForVotes): ${page.id}`);
+        logger.info({ pageId: page.id, refId }, `Page found for vote check`);
 
-        console.log("extrinsicMap", extrinsicMap);
-        console.log("extrinsicMap[refId]", extrinsicMap[refId]);
+        logger.debug({ extrinsicMap, refIdExtrinsic: extrinsicMap[refId] }, "Extrinsic mapping data");
 
         await updateNotionToVoted(page.id, proposal.voted, extrinsicMap[refId], page.properties?.["Chain"]?.select?.name as Chain);
-        console.info(`Notion page ${page.id} updated: ${proposal.voted}`);
+        logger.info({ pageId: page.id, voted: proposal.voted }, `Notion page updated with vote status`);
         readyProposals.splice(index, 1);
         await saveReadyProposalsToFile(readyProposals, READY_FILE as string);
       } else {
-        console.error("Page not found, id: ", refId);
+        logError(logger, { refId }, "Page not found for referendum ID", ErrorType.PAGE_NOT_FOUND);
       }
     });
   } catch (error) {
-    console.error("Error checking vote statuses (checkForVotes):", error);
+    logger.error({ error }, "Error checking vote statuses (checkForVotes)");
   } finally {
     isCheckingVotes = false;
   }
@@ -95,7 +99,7 @@ async function fetchActiveVotes(
     const api = await ApiPromise.create({ provider: wsProvider });
 
     let allVotes: ReferendumId[] = [];
-    console.log(`Fetching votes for account: ${account}`);
+    logger.info({ account, network }, `Fetching votes for account`);
     for (const trackId of TRACKS) {
       const votingResult = (await api.query.convictionVoting.votingFor(
         account,
@@ -111,7 +115,7 @@ async function fetchActiveVotes(
 
     return allVotes;
   } catch (error) {
-    console.error(`Error checking vote for account ${account}:`, error);
+    logger.error({ error, account, network }, `Error checking vote for account`);
     throw error;
   }
 }
@@ -161,39 +165,32 @@ export async function updateNotionToVoted(
 
   const data = { properties };
 
-  const maxRetries = 5;
-  const retryDelay = 60000; // 1 minute in milliseconds
-  let retryCount = 0;
+  try {
+    const rateLimitHandler = RateLimitHandler.getInstance();
+    
+    await rateLimitHandler.executeWithRateLimit(
+      async () => {
+        return await axios.patch(notionApiUrl, data, {
+          headers: {
+            Authorization: `Bearer ${notionApiToken}`,
+            "Content-Type": "application/json",
+            "Notion-Version": process.env.NOTION_VERSION,
+          },
+        });
+      },
+      RATE_LIMIT_CONFIGS.critical,
+      `update-voted-${pageId}`
+    );
 
-  while (retryCount < maxRetries) {
-    try {
-      await axios.patch(notionApiUrl, data, {
-        headers: {
-          Authorization: `Bearer ${notionApiToken}`,
-          "Content-Type": "application/json",
-          "Notion-Version": process.env.NOTION_VERSION,
-        },
-      });
-
-      return pageId;
-    } catch (error) {
-      retryCount++;
-      const errorMessage = (error as any).response
-        ? (error as any).response.data
-        : (error as any).message;
-      
-      console.error(`Error updating page (attempt ${retryCount}/${maxRetries}):`, errorMessage);
-      
-      if (retryCount === maxRetries) {
-        throw new Error(`Failed to update Notion page after ${maxRetries} attempts: ${errorMessage}`);
-      }
-      
-      console.log(`Waiting ${retryDelay/1000} seconds before retry...`);
-      await sleep(retryDelay);
-    }
+    return pageId;
+  } catch (error) {
+    const errorMessage = (error as any).response
+      ? (error as any).response.data
+      : (error as any).message;
+    
+    logger.error({ error: errorMessage, pageId }, 'Error updating voting status');
+    throw new Error(`Failed to update Notion page voting status: ${errorMessage}`);
   }
-
-  return pageId;
 }
 
 export async function checkSubscan(votedList: ReferendumId[]): Promise<ExtrinsicHashMap> {
@@ -244,8 +241,8 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
     // Add nested extrinsics to the list
     for (const extrinsic of extrinsics) {
       if (extrinsic.params[0].name === 'calls') {
-        console.info("Adding nested extrinsics to list");
-        console.log("extrinsic.params[0].value", extrinsic.params[0].value);
+        logger.debug({ extrinsicHash: extrinsic.extrinsic_hash }, "Adding nested extrinsics to list");
+        logger.debug({ nestedCalls: extrinsic.params[0].value }, "Nested extrinsic calls");
 
         const nestedExtrinsics = extrinsic.params[0].value.map((nestedCall: any) => ({
           ...nestedCall,
@@ -264,10 +261,10 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
       if (extrinsic?.params?.[0]?.value?.[0]?.call_name === "vote") {
         rawReferendumId = extrinsic.params[0].value[0].params[0].value;
         referendumId = rawReferendumId ? Number(rawReferendumId) : null;
-        console.debug(`Vote call referendum ID: ${referendumId}`);
+        logger.debug({ referendumId, extrinsicHash: extrinsic.extrinsic_hash }, `Vote call referendum ID`);
       } else {
         referendumId = rawReferendumId ? Number(rawReferendumId) : null;
-        console.debug(`Regular referendum ID: ${referendumId}`);
+        logger.debug({ referendumId, extrinsicHash: extrinsic.extrinsic_hash }, `Regular referendum ID`);
       }
       
       if (referendumId !== null && votedList.includes(referendumId) && extrinsic.extrinsic_hash) {
