@@ -35,7 +35,7 @@ export async function createReferenda(
     origin: getValidatedOrigin(referenda.origin),
     referendumTimeline: getValidatedStatus(referenda.status),
     internalStatus: InternalStatus.NotStarted,
-    link: `https://${network.toLowerCase()}.polkassembly.io/referenda/${referenda.post_id}`,
+    link: `https://${referenda.network.toLowerCase()}.polkassembly.io/referenda/${referenda.post_id}`,
     number: referenda.post_id,
     created_at: referenda.created_at
   }
@@ -97,7 +97,7 @@ function prepareNotionData(
     if (input.number) {
         properties['Number'] = {
           type: 'title',
-          title: [{ text: { content: input.number.toString() } }]
+          title: [{ text: { content: input.number.toString().trim() } }]
         };
       }
   

@@ -1,4 +1,4 @@
-import { getNotionPages } from "../findNotionPage";
+import { getNotionPages } from "../notion/findNotionPage";
 import { READY_FILE } from "../utils/constants";
 import { loadReadyProposalsFromFile, saveReadyProposalsToFile } from "../utils/readyFileHandlers";
 import { handleReferendaVote } from "./handleReferenda";
@@ -12,7 +12,7 @@ export async function sendReadyProposalsToMimir(): Promise<void> {
 
     for (const page of pages) {
       const network = page.properties?.["Chain"].select?.name;
-      const postId = page.properties?.["Number"].title[0].text.content;
+      const postId = page.properties?.["Number"].title[0].text.content.trim();
 
       const promise = handleReferendaVote(page, network, postId);
       mimirPromises.push(promise);
