@@ -31,6 +31,7 @@ CREATE TABLE referendums (
     ai_summary TEXT,                             -- AI-generated summary
     reason_for_vote TEXT,                        -- Reason for the vote decision
     reason_for_no_way TEXT,                      -- Reason for NO WAY vote
+    voted_link TEXT,                             -- Subscan extrinsic URL after vote execution
     
     -- Unique constraint to prevent duplicates
     UNIQUE(post_id, chain)

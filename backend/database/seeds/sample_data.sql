@@ -20,31 +20,31 @@ INSERT OR IGNORE INTO team_members (name, email) VALUES
 INSERT OR IGNORE INTO referendums (
     post_id, chain, title, description, requested_amount_usd, 
     origin, referendum_timeline, internal_status, link, 
-    voting_start_date, voting_end_date, created_at
+    voting_start_date, voting_end_date, created_at, voted_link
 ) VALUES
 (1001, 'Polkadot', 'Sample Polkadot Referendum 1', 'This is a sample referendum for testing purposes. It demonstrates the basic functionality of the voting tool.', 50000.0,
  'Root', 'Deciding', 'Not started', 'https://polkadot.polkassembly.io/referenda/1001',
- '2024-01-01T00:00:00Z', '2024-01-29T00:00:00Z', '2024-01-01T00:00:00Z'),
+ '2024-01-01T00:00:00Z', '2024-01-29T00:00:00Z', '2024-01-01T00:00:00Z', NULL),
 
 (1002, 'Polkadot', 'Sample Polkadot Referendum 2', 'Another sample referendum with different status. This one is being considered by the team.', 25000.0,
  'Treasurer', 'Submitted', 'Considering', 'https://polkadot.polkassembly.io/referenda/1002',
- '2024-01-02T00:00:00Z', '2024-01-30T00:00:00Z', '2024-01-02T00:00:00Z'),
+ '2024-01-02T00:00:00Z', '2024-01-30T00:00:00Z', '2024-01-02T00:00:00Z', NULL),
 
 (1003, 'Polkadot', 'Sample Polkadot Referendum 3', 'A referendum that is ready for approval after team evaluation.', 75000.0,
  'BigSpender', 'Deciding', 'Ready for approval', 'https://polkadot.polkassembly.io/referenda/1003',
- '2024-01-03T00:00:00Z', '2024-01-31T00:00:00Z', '2024-01-03T00:00:00Z'),
+ '2024-01-03T00:00:00Z', '2024-01-31T00:00:00Z', '2024-01-03T00:00:00Z', NULL),
 
 (2001, 'Kusama', 'Sample Kusama Referendum 1', 'A Kusama network referendum that is ready for voting.', 15000.0,
  'SmallTipper', 'Deciding', 'Ready to vote', 'https://kusama.polkassembly.io/referenda/2001',
- '2024-01-03T00:00:00Z', '2024-01-17T00:00:00Z', '2024-01-03T00:00:00Z'),
+ '2024-01-03T00:00:00Z', '2024-01-17T00:00:00Z', '2024-01-03T00:00:00Z', NULL),
 
 (2002, 'Kusama', 'Sample Kusama Referendum 2', 'A completed Kusama referendum with executed voting.', 75000.0,
  'BigSpender', 'Executed', 'Voted 👍 Aye 👍', 'https://kusama.polkassembly.io/referenda/2002',
- '2023-12-01T00:00:00Z', '2023-12-15T00:00:00Z', '2023-12-01T00:00:00Z'),
+ '2023-12-01T00:00:00Z', '2023-12-15T00:00:00Z', '2023-12-01T00:00:00Z', 'https://kusama.subscan.io/extrinsic/0xabcdef1234567890'),
 
 (2003, 'Kusama', 'Sample Kusama Referendum 3', 'A referendum that was rejected by the team.', 30000.0,
  'MediumSpender', 'Rejected', 'Voted 👎 Nay 👎', 'https://kusama.polkassembly.io/referenda/2003',
- '2023-11-01T00:00:00Z', '2023-11-15T00:00:00Z', '2023-11-01T00:00:00Z');
+ '2023-11-01T00:00:00Z', '2023-11-15T00:00:00Z', '2023-11-01T00:00:00Z', 'https://kusama.subscan.io/extrinsic/0x0987654321abcdef');
 
 -- ============================================================================
 -- SAMPLE SCORING CRITERIA
