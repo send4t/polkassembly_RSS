@@ -30,10 +30,7 @@ export async function fetchDataFromAPI(limit: number = 200, network: Chain): Pro
     // Validate response structure
     if (!response.data || !Array.isArray(response.data.posts)) {
       logError(logger, { network, responseData: response.data }, "Invalid response structure from Polkassembly API", ErrorType.INVALID_RESPONSE);
-      return {
-        referendas: [],
-        discussions: []
-      };
+      throw new Error(`Invalid response structure from Polkassembly API for network ${network}`);
     }
 
     const posts: PolkassemblyReferenda[] = response.data.posts;
@@ -79,10 +76,8 @@ export async function fetchDataFromAPI(limit: number = 200, network: Chain): Pro
     } else {
       logger.error({ network, error: (error as Error).message }, "Unexpected error fetching data from Polkassembly API");
     }
-    return {
-      referendas: [],
-      discussions: []
-    };
+    // Throw the error instead of returning empty arrays to abort the entire refresh cycle
+    throw error;
   }
 }
 
@@ -126,6 +121,7 @@ export async function fetchReferendumContent(postId: number, network: Chain) {
     } else {
       logger.error({ postId, network, error: (error as Error).message }, 'Unexpected error fetching referendum content');
     }
-    return { content: 'No content available' };
+    // Throw the error instead of returning fallback content
+    throw error;
   }
 }
