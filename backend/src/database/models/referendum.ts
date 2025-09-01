@@ -5,7 +5,7 @@ import { ReferendumRecord, ReferendumWithDetails } from '../types';
 export class Referendum {
     
     /**
-     * Create a new referendum (replaces Notion createReferenda function)
+     * Create a new referendum
      */
     public static async create(data: ReferendumRecord): Promise<number> {
         const sql = `
@@ -45,7 +45,7 @@ export class Referendum {
     }
 
     /**
-     * Find a referendum by post_id and chain (replaces findNotionPageByPostId)
+     * Find a referendum by post_id and chain
      */
     public static async findByPostIdAndChain(postId: number, chain: Chain): Promise<ReferendumWithDetails | null> {
         const sql = `
@@ -70,7 +70,7 @@ export class Referendum {
     }
 
     /**
-     * Update a referendum (replaces Notion updateReferenda function)
+     * Update a referendum
      */
     public static async update(postId: number, chain: Chain, updates: Partial<ReferendumRecord>): Promise<void> {
         // Build dynamic UPDATE query
@@ -102,7 +102,7 @@ export class Referendum {
     }
 
     /**
-     * Get all referendums (replaces getNotionPages)
+     * Get all referendums
      */
     public static async getAll(): Promise<ReferendumWithDetails[]> {
         const sql = `
@@ -149,7 +149,7 @@ export class Referendum {
             FROM referendums r
             LEFT JOIN voting_decisions vd ON r.id = vd.referendum_id
             WHERE r.internal_status = 'Ready to vote'
-              AND r.voting_end_date > datetime('now')
+              AND (r.voting_end_date IS NULL OR r.voting_end_date > datetime('now'))
               AND (vd.vote_executed IS NULL OR vd.vote_executed = FALSE)
             ORDER BY r.voting_end_date
         `;

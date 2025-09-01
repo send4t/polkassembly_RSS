@@ -2,7 +2,7 @@
   <!-- 
     REFERENDUM EDITOR - FOR TEST FRONTEND ONLY
     
-    This component was created for the dummy/test frontend that replaces Notion
+    This component was created for the test frontend with SQLite database
     during the SQLite migration testing phase.
     
     IMPORTANT: The "Create" mode is DISABLED for production use.
@@ -484,8 +484,19 @@ export default {
     if (this.referendum) {
       this.loadReferendumData()
     }
+    // Add ESC key listener for closing the editor
+    document.addEventListener('keydown', this.handleEscKey)
+  },
+  beforeUnmount() {
+    // Remove ESC key listener to prevent memory leaks
+    document.removeEventListener('keydown', this.handleEscKey)
   },
   methods: {
+    handleEscKey(event) {
+      if (event.key === 'Escape') {
+        this.close()
+      }
+    },
     loadReferendumData() {
       // Load existing referendum data into form
       Object.keys(this.formData).forEach(key => {

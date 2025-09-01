@@ -6,11 +6,6 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Required Notion Configuration
-      - NOTION_API_TOKEN=${NOTION_API_TOKEN}
-      - NOTION_DATABASE_ID=${NOTION_DATABASE_ID}
-      - NOTION_VERSION=${NOTION_VERSION:-2022-06-28}
-      
       # Required Application Configuration
       - REFRESH_INTERVAL=${REFRESH_INTERVAL:-300}
       
@@ -29,8 +24,6 @@ services:
       - READY_CHECK_INTERVAL=${READY_CHECK_INTERVAL:-60}
       - NODE_ENV=${NODE_ENV:-production}
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      - START_MINUTE=${START_MINUTE:-0}
-      - SKIP_WAIT=${SKIP_WAIT:-true}
       
     env_file:
       - .env

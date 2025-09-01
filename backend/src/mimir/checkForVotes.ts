@@ -2,39 +2,39 @@ import { ApiPromise, WsProvider } from "@polkadot/api";
 import {
   KUSAMA_PROVIDER,
   POLKADOT_PROVIDER,
-  READY_FILE,
   SUBSCAN_ROW_COUNT,
   TRACKS,
+  MIMIR_TRANSACTION_CLEANUP_DAYS,
 } from "../utils/constants";
 import {
   Chain,
   ExtrinsicHashMap,
-  InternalStatus,
   ReferendumId,
+  InternalStatus,
   SuggestedVote,
 } from "../types/properties";
-import { NotionPageId, NotionProperties } from "../types/notion";
+
+// Extended type to include actual vote data from chain
+interface ExtrinsicVoteData {
+  extrinsicHash: string;
+  actualVote: SuggestedVote | null;
+}
 import axios from "axios";
-import { findNotionPageByPostId, getNotionPages } from "../notion/findNotionPage";
-import {
-  loadReadyProposalsFromFile,
-  saveReadyProposalsToFile,
-} from "../utils/readyFileHandlers";
-import { RateLimitHandler } from "../utils/rateLimitHandler";
-import { RATE_LIMIT_CONFIGS } from "../config/rate-limit-config";
 import { createSubsystemLogger, logError } from "../config/logger";
 import { Subsystem, ErrorType } from "../types/logging";
+import { Referendum } from "../database/models/referendum";
+import { VotingDecision } from "../database/models/votingDecision";
+import { MimirTransaction } from "../database/models/mimirTransaction";
 
 const logger = createSubsystemLogger(Subsystem.MIMIR);
 
-const notionApiToken = process.env.NOTION_API_TOKEN;
 let isCheckingVotes = false;
 
 /**
- * Reads the ready proposals file and checks for votes on multisig accounts.
- * Updates the Notion database with the vote status.
+ * Checks for votes on multisig accounts using the database.
+ * Updates the SQLite database with the vote status.
  * 
- * Removes the proposals that have been voted on from the ready proposals file.
+ * Removes the proposals that have been voted on from pending Mimir transactions.
  */
 export async function checkForVotes(): Promise<void> {
   if (isCheckingVotes) {
@@ -44,15 +44,25 @@ export async function checkForVotes(): Promise<void> {
 
   try {
     isCheckingVotes = true;
-    const readyProposals = await loadReadyProposalsFromFile(
-      READY_FILE as string
-    );
+    
+    // Clean up stale transactions first (configurable timeout, default 7 days)
+    const staleCount = await MimirTransaction.getStaleTransactionCount(MIMIR_TRANSACTION_CLEANUP_DAYS);
+    if (staleCount > 0) {
+      const cleanedUp = await MimirTransaction.cleanupStaleTransactions(MIMIR_TRANSACTION_CLEANUP_DAYS);
+      logger.info({ 
+        cleanedUp, 
+        staleCount, 
+        cleanupDays: MIMIR_TRANSACTION_CLEANUP_DAYS 
+      }, "Cleaned up stale Mimir transactions (likely deleted from Mimir)");
+    }
+    
+    const pendingTransactions = await MimirTransaction.getPendingTransactions();
 
-    if (readyProposals.length === 0) {
-      logger.info("No ready proposals found.");
+    if (pendingTransactions.length === 0) {
+      logger.info("No pending Mimir transactions found.");
       return;
     }
-    logger.info({ proposalsCount: readyProposals.length, readyProposals }, "Ready proposals found");
+    logger.info({ transactionsCount: pendingTransactions.length, pendingTransactions }, "Pending Mimir transactions found");
 
     const votedPolkadot = await fetchActiveVotes(
       process.env.POLKADOT_MULTISIG as string,
@@ -62,34 +72,79 @@ export async function checkForVotes(): Promise<void> {
       process.env.KUSAMA_MULTISIG as string,
       Chain.Kusama
     );
-    // Ensure both vote arrays are valid before spreading
-    const safeVotedPolkadot = Array.isArray(votedPolkadot) ? votedPolkadot : [];
-    const safeVotedKusama = Array.isArray(votedKusama) ? votedKusama : [];
-    const votedList = [...safeVotedPolkadot, ...safeVotedKusama];
+    
+    // Combine vote data from both chains
+    const allVotesWithData = { ...votedPolkadot, ...votedKusama };
+    const votedList = Object.keys(allVotesWithData).map(Number);
 
-    const pages = await getNotionPages();
-    const extrinsicMap = await checkSubscan(votedList);
+    const extrinsicVoteMap = await checkSubscan(votedList);
 
-    readyProposals.forEach(async (proposal, index) => {
-      const refId = Number(proposal.id);
+    // Process each pending transaction to check if it has been voted on
+    for (const transaction of pendingTransactions) {
+      const refId = transaction.post_id;
+      const chain = transaction.chain;
       const found = votedList.includes(refId);
-      if (!found) return;
+      
+      if (!found) continue;
 
-      const page = await findNotionPageByPostId(pages, refId);
+      logger.info({ referendumId: transaction.referendum_id, refId, chain }, `Referendum found for vote check`);
 
-      if (page) {
-        logger.info({ pageId: page.id, refId }, `Page found for vote check`);
+      // Get actual vote from on-chain data (most reliable)
+      const chainVote = allVotesWithData[refId];
+      
+      // Get Subscan data for extrinsic hash
+      const subscanData = extrinsicVoteMap[refId];
+      const subscanLink = subscanData?.extrinsicHash ? buildSubscanLink(subscanData.extrinsicHash, chain) : undefined;
+      
+      // Use on-chain vote data as primary source, fallback to Subscan, then suggested vote
+      const actualVote = chainVote || subscanData?.actualVote || transaction.voted;
 
-        logger.debug({ extrinsicMap, refIdExtrinsic: extrinsicMap[refId] }, "Extrinsic mapping data");
-
-        await updateNotionToVoted(page.id, proposal.voted, extrinsicMap[refId], page.properties?.["Chain"]?.select?.name as Chain);
-        logger.info({ pageId: page.id, voted: proposal.voted }, `Notion page updated with vote status`);
-        readyProposals.splice(index, 1);
-        await saveReadyProposalsToFile(readyProposals, READY_FILE as string);
-      } else {
-        logError(logger, { refId }, "Page not found for referendum ID", ErrorType.PAGE_NOT_FOUND);
+      logger.debug({ 
+        chainVote, 
+        subscanVote: subscanData?.actualVote, 
+        suggestedVote: transaction.voted,
+        finalVote: actualVote 
+      }, "Vote data sources");
+      let votedStatus: InternalStatus;
+      
+      switch (actualVote) {
+        case SuggestedVote.Aye:
+          votedStatus = InternalStatus.VotedAye;
+          break;
+        case SuggestedVote.Nay:
+          votedStatus = InternalStatus.VotedNay;
+          break;
+        case SuggestedVote.Abstain:
+          votedStatus = InternalStatus.VotedAbstain;
+          break;
+        default:
+          votedStatus = InternalStatus.NotVoted;
       }
-    });
+      
+      // Update the referendum status and add the subscan link
+      await Referendum.updateVotingStatus(refId, chain, votedStatus, subscanLink);
+      
+      // Update the voting decision to mark as executed and store the actual vote
+      await VotingDecision.upsert(transaction.referendum_id, {
+        final_vote: actualVote, // Store the actual vote that was executed
+        vote_executed: true,
+        vote_executed_date: new Date().toISOString()
+      });
+
+      // Update the Mimir transaction status
+      await MimirTransaction.updateStatus(
+        transaction.referendum_id, 
+        'executed', 
+        subscanData?.extrinsicHash
+      );
+
+      logger.info({ 
+        referendumId: transaction.referendum_id, 
+        suggestedVote: transaction.voted,
+        actualVote: actualVote,
+        extrinsicHash: subscanData?.extrinsicHash
+      }, `Database updated with actual vote status and Mimir transaction marked as executed`);
+    }
   } catch (error) {
     logger.error({ error }, "Error checking vote statuses (checkForVotes)");
   } finally {
@@ -97,24 +152,36 @@ export async function checkForVotes(): Promise<void> {
   }
 }
 
+
+
+/**
+ * Build Subscan link for the given extrinsic hash and chain
+ */
+function buildSubscanLink(extrinsicHash: string, chain: Chain): string {
+  const baseUrl = chain === Chain.Polkadot 
+    ? 'https://polkadot.subscan.io' 
+    : 'https://kusama.subscan.io';
+  return `${baseUrl}/extrinsic/${extrinsicHash}`;
+}
+
 /**
  * Fetches active votes for a given account on a given network using @polkadot/api.
  * 
  * @param account - The account to fetch votes for
  * @param network - The network to fetch votes from
- * @returns An array of referendum IDs that the account has voted on
+ * @returns A map of referendum IDs to their actual vote data from chain
  */
 async function fetchActiveVotes(
   account: string,
   network: Chain
-): Promise<ReferendumId[]> {
+): Promise<Record<number, SuggestedVote>> {
   try {
     const wsProvider = new WsProvider(
       network === Chain.Kusama ? KUSAMA_PROVIDER : POLKADOT_PROVIDER
     );
     const api = await ApiPromise.create({ provider: wsProvider });
 
-    let allVotes: ReferendumId[] = [];
+    let voteMap: Record<number, SuggestedVote> = {};
     logger.info({ account, network }, `Fetching votes for account`);
     for (const trackId of TRACKS) {
       const votingResult = (await api.query.convictionVoting.votingFor(
@@ -125,103 +192,50 @@ async function fetchActiveVotes(
       votingResult.toHuman().Casting.votes.forEach((vote: any) => {
         const refId = (vote[0] as string).split(",").join("");
         if (Number.isNaN(Number(refId))) throw "Invalid referendum ID";
-        allVotes.push(Number(refId));
+        
+        // Parse the actual vote data from chain
+        const voteData = vote[1];
+        let actualVote: SuggestedVote = SuggestedVote.Aye; // Default fallback
+        
+        if (voteData && typeof voteData === 'object') {
+          if (voteData.Standard) {
+            // Standard vote: check the aye field
+            actualVote = voteData.Standard.vote?.aye === 'true' || voteData.Standard.vote?.aye === true 
+              ? SuggestedVote.Aye 
+              : SuggestedVote.Nay;
+          } else if (voteData.Split) {
+            // Split vote (Abstain): check if only abstain has value
+            const { aye, nay, abstain } = voteData.Split;
+            if (abstain && abstain !== '0' && (aye === '0' || !aye) && (nay === '0' || !nay)) {
+              actualVote = SuggestedVote.Abstain;
+            }
+          }
+        }
+        
+        voteMap[Number(refId)] = actualVote;
       });
     }
 
-    return allVotes;
+    await api.disconnect();
+    return voteMap;
   } catch (error) {
     logger.error({ error, account, network }, `Error checking vote for account`);
     throw error;
   }
 }
 
-/** Update a Referenda in the Notion database
- *  Referenda will be updated to VotedAye, VotedNay, VotedAbstain
- *  Will also update the Voted link to the Subscan page of the extrinsic */
-export async function updateNotionToVoted(
-  pageId: NotionPageId,
-  vote: SuggestedVote,
-  subscanExtrinsicId: string,
-  chain: Chain
-): Promise<NotionPageId> {
-  if (!subscanExtrinsicId) {
-    throw new Error("Subscan extrinsic ID is undefined");
-  }
-
-  const notionApiUrl = `https://api.notion.com/v1/pages/${pageId}`;
-
-  const properties: NotionProperties = {};
-
-  let status: InternalStatus;
-
-  switch (vote) {
-    case SuggestedVote.Aye:
-      status = InternalStatus.VotedAye;
-      break;
-    case SuggestedVote.Nay:
-      status = InternalStatus.VotedNay;
-      break;
-    case SuggestedVote.Abstain:
-      status = InternalStatus.VotedAbstain;
-      break;
-
-    default:
-      throw Error(`Invalid SuggestedVote value: ${vote}`);
-  }
-
-  properties["Internal status"] = {
-    type: "status",
-    status: { name: status },
-  };
-
-  properties["Voted link"] = {
-    type: "url",
-    url: `https://${chain.toLowerCase()}.subscan.io/extrinsic/${subscanExtrinsicId}`,
-  };
-
-  const data = { properties };
-
-  try {
-    const rateLimitHandler = RateLimitHandler.getInstance();
-    
-    await rateLimitHandler.executeWithRateLimit(
-      async () => {
-        return await axios.patch(notionApiUrl, data, {
-          headers: {
-            Authorization: `Bearer ${notionApiToken}`,
-            "Content-Type": "application/json",
-            "Notion-Version": process.env.NOTION_VERSION,
-          },
-        });
-      },
-      RATE_LIMIT_CONFIGS.critical,
-      `update-voted-${pageId}`
-    );
-
-    return pageId;
-  } catch (error) {
-    const errorMessage = (error as any).response
-      ? (error as any).response.data
-      : (error as any).message;
-    
-    logger.error({ error: errorMessage, pageId }, 'Error updating voting status');
-    throw new Error(`Failed to update Notion page voting status: ${errorMessage}`);
-  }
-}
-
 /**
- * Fetches extrinsic hashes for voted referendums using Subscan API.
+ * Fetches extrinsic hashes and vote data for voted referendums using Subscan API.
  * 
  * @param votedList - The list of referendum IDs to get transaction hashes for
- * @returns A map of referendum IDs to their corresponding extrinsic hashes
+ * @returns A map of referendum IDs to their corresponding extrinsic hashes and vote data
  */
-export async function checkSubscan(votedList: ReferendumId[]): Promise<ExtrinsicHashMap> {
+export async function checkSubscan(votedList: ReferendumId[]): Promise<Record<number, ExtrinsicVoteData>> {
   let polkadotExtrinsics: any[] = [];
   let kusamaExtrinsics: any[] = [];
   
   try {
-    let extrinsicHashMap: ExtrinsicHashMap = {};
+    let extrinsicVoteMap: Record<number, ExtrinsicVoteData> = {};
 
     const polkadotSubscanUrl = `https://polkadot.api.subscan.io/api/scan/proxy/extrinsics`;
     const kusamaSubscanUrl = `https://kusama.api.subscan.io/api/scan/proxy/extrinsics`;
@@ -289,68 +303,116 @@ export async function checkSubscan(votedList: ReferendumId[]): Promise<Extrinsic
       }
     }
 
-    // Ensure both arrays are valid before spreading to prevent "not iterable" errors
-    const safePolkadotExtrinsics = Array.isArray(polkadotExtrinsics) ? polkadotExtrinsics : [];
-    const safeKusamaExtrinsics = Array.isArray(kusamaExtrinsics) ? kusamaExtrinsics : [];
-    const extrinsics = [...safePolkadotExtrinsics, ...safeKusamaExtrinsics];
+    // Combine extrinsics from both networks
+    const allExtrinsics = [...polkadotExtrinsics, ...kusamaExtrinsics];
+    logger.info({ 
+      polkadotCount: polkadotExtrinsics.length, 
+      kusamaCount: kusamaExtrinsics.length, 
+      totalCount: allExtrinsics.length 
+    }, "Fetched extrinsics from Subscan");
+
+    // Process each extrinsic to find referendum votes
+    for (const extrinsic of allExtrinsics) {
+      try {
+        if (extrinsic.call_module === 'ConvictionVoting' && extrinsic.call_module_function === 'vote') {
+          // Parse the referendum ID from the extrinsic parameters
+          const refId = parseReferendumIdFromExtrinsic(extrinsic);
+          
+          if (refId && votedList.includes(refId)) {
+            // Parse the actual vote from the extrinsic
+            const actualVote = parseVoteFromExtrinsic(extrinsic);
+            
+            extrinsicVoteMap[refId] = {
+              extrinsicHash: extrinsic.extrinsic_hash,
+              actualVote: actualVote
+            };
+            
+            logger.debug({ 
+              refId, 
+              hash: extrinsic.extrinsic_hash, 
+              actualVote 
+            }, "Mapped referendum to extrinsic hash and vote data");
+          }
+        }
+      } catch (error) {
+        logger.warn({ error: (error as Error).message, extrinsic: extrinsic.extrinsic_hash }, 
+          "Error processing extrinsic");
+      }
+    }
+
+    logger.info({ mappedCount: Object.keys(extrinsicVoteMap).length }, "Completed extrinsic hash and vote mapping");
+    return extrinsicVoteMap;
     
-    // Add nested extrinsics to the list
-    for (const extrinsic of extrinsics) {
-      if (extrinsic && extrinsic.params && extrinsic.params[0] && extrinsic.params[0].name === 'calls') {
-        logger.debug({ extrinsicHash: extrinsic.extrinsic_hash }, "Adding nested extrinsics to list");
-        logger.debug({ nestedCalls: extrinsic.params[0].value }, "Nested extrinsic calls");
+  } catch (error) {
+    logger.error({ error: (error as Error).message }, "Error in checkSubscan");
+    return {};
+  }
+}
 
-        if (Array.isArray(extrinsic.params[0].value)) {
-          try {
-            const nestedExtrinsics = extrinsic.params[0].value.map((nestedCall: any) => ({
-              ...nestedCall,
-              extrinsic_hash: extrinsic.extrinsic_hash  // Preserve the parent extrinsic hash
-            }));
-
-            // Ensure nestedExtrinsics is a valid array before spreading
-            if (Array.isArray(nestedExtrinsics) && nestedExtrinsics.length > 0) {
-              extrinsics.push(...nestedExtrinsics);
-            }
-          } catch (nestedError: any) {
-            logger.warn({ error: nestedError.message, extrinsicHash: extrinsic.extrinsic_hash }, "Error processing nested extrinsics");
+/**
+ * Parse referendum ID from extrinsic parameters
+ */
+function parseReferendumIdFromExtrinsic(extrinsic: any): number | null {
+  try {
+    if (extrinsic.params && Array.isArray(extrinsic.params)) {
+      // Look for the referendum ID in the parameters
+      for (const param of extrinsic.params) {
+        if (param.name === 'poll_index' || param.name === 'ref_index') {
+          const refId = parseInt(param.value);
+          if (!isNaN(refId)) {
+            return refId;
           }
         }
       }
     }
+    return null;
+  } catch (error) {
+    logger.warn({ error: (error as Error).message }, "Error parsing referendum ID from extrinsic");
+    return null;
+  }
+}
 
-    // Create the extrinsic hash map
-    for (const extrinsic of extrinsics) {      
-      if (!extrinsic) continue;
-      
-      let rawReferendumId = extrinsic?.params?.[0]?.value;
-      let referendumId = null;
-      
-      if (extrinsic?.params?.[0]?.value?.[0]?.call_name === "vote") {
-        rawReferendumId = extrinsic.params[0].value[0].params[0].value;
-        referendumId = rawReferendumId ? Number(rawReferendumId) : null;
-        logger.debug({ referendumId, extrinsicHash: extrinsic.extrinsic_hash }, `Vote call referendum ID`);
-      } else {
-        referendumId = rawReferendumId ? Number(rawReferendumId) : null;
-        logger.debug({ referendumId, extrinsicHash: extrinsic.extrinsic_hash }, `Regular referendum ID`);
-      }
-      
-      if (referendumId !== null && votedList.includes(referendumId) && extrinsic.extrinsic_hash) {
-        extrinsicHashMap[referendumId] = extrinsic.extrinsic_hash;
+/**
+ * Parse the actual vote direction from extrinsic parameters
+ */
+function parseVoteFromExtrinsic(extrinsic: any): SuggestedVote | null {
+  try {
+    if (extrinsic.params && Array.isArray(extrinsic.params)) {
+      // Look for the vote parameter
+      for (const param of extrinsic.params) {
+        if (param.name === 'vote') {
+          const voteData = param.value;
+          
+          // Handle different vote structures
+          if (typeof voteData === 'object') {
+            // Standard vote: { Standard: { vote: { aye: true/false, conviction: number }, balance: number } }
+            if (voteData.Standard) {
+              const aye = voteData.Standard.vote?.aye;
+              if (aye === true) return SuggestedVote.Aye;
+              if (aye === false) return SuggestedVote.Nay;
+            }
+            // Split vote (Abstain): { Split: { aye: 0, nay: 0, abstain: balance } }
+            else if (voteData.Split) {
+              const { aye, nay, abstain } = voteData.Split;
+              if (abstain > 0 && aye === 0 && nay === 0) {
+                return SuggestedVote.Abstain;
+              }
+            }
+          }
+          
+          // Try parsing as string (sometimes Subscan returns string representations)
+          if (typeof voteData === 'string') {
+            const lowerVote = voteData.toLowerCase();
+            if (lowerVote.includes('aye') || lowerVote.includes('true')) return SuggestedVote.Aye;
+            if (lowerVote.includes('nay') || lowerVote.includes('false')) return SuggestedVote.Nay;
+            if (lowerVote.includes('abstain') || lowerVote.includes('split')) return SuggestedVote.Abstain;
+          }
+        }
       }
     }
-
-    return extrinsicHashMap;
-
-  } catch (error: any) {
-    logger.error({ 
-      error: error.message, 
-      stack: error.stack,
-      votedListLength: votedList.length,
-      polkadotExtrinsicsType: typeof polkadotExtrinsics,
-      kusamaExtrinsicsType: typeof kusamaExtrinsics,
-      polkadotExtrinsicsIsArray: Array.isArray(polkadotExtrinsics),
-      kusamaExtrinsicsIsArray: Array.isArray(kusamaExtrinsics)
-    }, "Error in checkSubscan function");
-    throw new Error(`Error checking Subscan: ${error.message}`);
+    return null;
+  } catch (error) {
+    logger.warn({ error: (error as Error).message }, "Error parsing vote from extrinsic");
+    return null;
   }
 }
