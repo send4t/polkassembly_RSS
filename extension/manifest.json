@@ -13,8 +13,19 @@
     "https://polkadot.polkassembly.io/*",
     "https://kusama.polkassembly.io/*",
     "https://polkadot.subsquare.io/*",
-    "https://kusama.subsquare.io/*"
+    "https://kusama.subsquare.io/*",
+    "http://localhost:3000/*",
+    "https://528cc77057ef.ngrok-free.app/*"
   ],
+  "web_accessible_resources": [{
+    "resources": ["inject.js"],
+    "matches": [
+      "https://polkadot.polkassembly.io/*",
+      "https://kusama.polkassembly.io/*",
+      "https://polkadot.subsquare.io/*",
+      "https://kusama.subsquare.io/*"
+    ]
+  }],
   "content_scripts": [
     {
       "matches": [
@@ -32,7 +43,7 @@
     "default_title": "OpenGov VotingTool"
   },
   "background": {
-    "scripts": ["background.js"]
+    "service_worker": "background.js"
   },
   "icons": {
     "16": "icons/icon16.svg",
