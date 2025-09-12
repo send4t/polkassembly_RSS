@@ -3,6 +3,7 @@
 
 import { createApp, App as VueApp } from 'vue';
 import StatusBadge from '../components/StatusBadge.vue';
+import VotingControls from '../components/VotingControls.vue';
 import { ProposalDetector, type DetectedProposal } from './proposalDetector';
 import { TabDetector, type ActiveTabInfo } from './tabDetector';
 import { ApiService } from './apiService';
@@ -17,6 +18,7 @@ export class ContentInjector {
     private proposalCache: Map<string, ProposalData> = new Map();
     private cleanupFunctions: (() => void)[] = [];
     private currentActiveTab: ActiveTabInfo | null = null;
+    private isInjecting: boolean = false;
 
     constructor() {
         this.detector = ProposalDetector.getInstance();
@@ -60,8 +62,17 @@ export class ContentInjector {
         });
         this.cleanupFunctions.push(tabCleanup);
 
+        // Mutation observer removed - it was causing re-injection loops and blinking
+        // The multiple initialization strategies (DOMContentLoaded, window.onload, retries) 
+        // are sufficient for handling F5 refreshes and page loading scenarios
+        console.log('ℹ️ Using initialization strategies without mutation observer to prevent blinking');
+
         // Listen for status change events from components
         window.addEventListener('statusChanged', this.handleStatusChange.bind(this) as EventListener);
+        
+        // Listen for voting controls events
+        window.addEventListener('proposalAssigned', this.handleProposalAssigned.bind(this) as EventListener);
+        window.addEventListener('voteChanged', this.handleVoteChanged.bind(this) as EventListener);
 
         console.log('✅ Content injector initialized');
     }
@@ -150,21 +161,30 @@ export class ContentInjector {
         // Get proposal data from API
         const proposalData = await this.getProposalData(proposal.postId, proposal.chain);
         
-        // Check if we're on a category page and should show badges
-        if (this.tabDetector.isOnCategoryPage()) {
-            const currentTab = this.currentActiveTab || this.tabDetector.detectActiveTab();
-            if (!currentTab.shouldShowBadges) {
-                console.log(`⏸️ Not showing badge for single proposal - active tab "${currentTab.activeCategory}" is not tracked`);
-                return;
+        // Check if this is a referenda detail page (matches pattern like /referenda/123)
+        const referendaDetailPattern = /\/referenda\/\d+/;
+        if (referendaDetailPattern.test(window.location.pathname)) {
+            console.log('📋 Detected referenda detail page, injecting voting controls');
+            console.log('🔍 URL:', window.location.pathname);
+            console.log('✅ Referenda detail pages always show voting controls, ignoring tab restrictions');
+            
+            // Add a small delay to ensure the page is fully rendered
+            await sleep(500);
+            
+            await this.injectVotingControls(proposal, proposalData);
+        } else {
+            // For other proposal pages (list pages), check tab restrictions
+            if (this.tabDetector.isOnCategoryPage()) {
+                const currentTab = this.currentActiveTab || this.tabDetector.detectActiveTab();
+                if (!currentTab.shouldShowBadges) {
+                    console.log(`⏸️ Not showing badge for list page - active tab "${currentTab.activeCategory}" is not tracked`);
+                    return;
+                }
             }
+            
+            // Inject status badge for list pages
+            await this.injectStatusBadge(proposal, proposalData);
         }
-        
-        // Inject status badge
-        await this.injectStatusBadge(proposal, proposalData);
-        
-        // TODO: Inject other components (assignment display, quick vote indicators)
-        // await this.injectAssignmentDisplay(proposal, proposalData);
-        // await this.injectQuickVoteIndicators(proposal, proposalData);
     }
 
     /**
@@ -199,6 +219,303 @@ export class ContentInjector {
         }
         
         console.log(`🎉 Completed injection for all ${proposals.length} proposals`);
+    }
+
+    /**
+     * Inject voting controls component for referenda detail pages
+     */
+    private async injectVotingControls(proposal: DetectedProposal, proposalData: ProposalData | null): Promise<void> {
+        try {
+            console.log('🎯 Injecting voting controls for proposal', proposal.postId);
+            console.log('🔍 Current URL:', window.location.href);
+
+            // Prevent multiple simultaneous injections
+            if (this.isInjecting) {
+                console.log('⚠️ Already injecting voting controls, skipping to prevent race condition');
+                return;
+            }
+
+            // Check if already injected for this specific proposal
+            const existingControls = document.querySelector('#voting-tool-controls') || 
+                                    document.querySelector('#voting-tool-controls-container') ||
+                                    document.querySelector(`[data-opengov-proposal="${proposal.postId}"]`);
+            if (existingControls) {
+                console.log('⚠️ Voting controls already exist for proposal', proposal.postId, ', skipping');
+                return;
+            }
+
+            this.isInjecting = true;
+
+        // Since we're on a referenda page, the element MUST exist - retry aggressively
+        let rightWrapper: HTMLElement | null = null;
+        let retryCount = 0;
+        const maxRetries = 10; // Increased to 10 retries
+        
+        console.log('🔄 Starting aggressive retry mechanism for referenda page...');
+        
+        while (!rightWrapper && retryCount < maxRetries) {
+            retryCount++;
+            console.log(`🔄 Attempt ${retryCount}/${maxRetries} to find PostDetails_rightWrapper...`);
+            
+            if (retryCount > 1) {
+                await sleep(1000); // Wait 1 second before retry (except first attempt)
+            }
+            
+            rightWrapper = this.findPostDetailsRightWrapper();
+            
+            if (rightWrapper) {
+                console.log(`✅ Found element on attempt ${retryCount}!`);
+                break;
+            } else {
+                console.log(`❌ Attempt ${retryCount} failed, element not found`);
+                
+                // Log page state for debugging
+                console.log(`📊 Page state: readyState=${document.readyState}, title="${document.title}"`);
+                console.log(`📊 Body children count: ${document.body.children.length}`);
+                
+                // On every 3rd attempt, try a more thorough search
+                if (retryCount % 3 === 0) {
+                    console.log('🔍 Performing thorough DOM search...');
+                    const allElements = document.querySelectorAll('*');
+                    console.log(`📊 Total elements on page: ${allElements.length}`);
+                    
+                    // Look for any element that might be our target
+                    const potentialTargets = document.querySelectorAll('div, section, main, article');
+                    console.log(`📊 Potential target elements: ${potentialTargets.length}`);
+                    
+                    // Log first few potential targets
+                    for (let i = 0; i < Math.min(10, potentialTargets.length); i++) {
+                        const el = potentialTargets[i] as HTMLElement;
+                        console.log(`  Target ${i}: ${el.tagName}.${el.className} (${el.offsetWidth}x${el.offsetHeight})`);
+                    }
+                }
+            }
+        }
+
+        // If still not found after all retries, this is a critical issue
+        if (!rightWrapper) {
+            console.error('💥 CRITICAL: PostDetails_rightWrapper not found after 10 retries on referenda page!');
+            console.error('💥 This should never happen on a valid referenda page');
+            console.error('💥 URL:', window.location.href);
+            console.error('💥 Page title:', document.title);
+            console.error('💥 Body HTML preview:', document.body.innerHTML.substring(0, 500));
+            
+            // Last resort: create fallback container but log it as an error
+            console.log('🆘 Creating emergency fallback container...');
+            rightWrapper = document.createElement('div');
+            rightWrapper.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                z-index: 1000000;
+                max-width: 400px;
+                background: rgba(255, 0, 0, 0.9);
+                color: white;
+                backdrop-filter: blur(10px);
+                border-radius: 12px;
+                padding: 16px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                border: 2px solid red;
+            `;
+            
+            // Add error message
+            const errorMsg = document.createElement('div');
+            errorMsg.innerHTML = `
+                <strong>⚠️ FALLBACK MODE</strong><br>
+                Could not find page element.<br>
+                Please report this issue.
+            `;
+            rightWrapper.appendChild(errorMsg);
+            
+            document.body.appendChild(rightWrapper);
+            console.log('🆘 Emergency fallback container created');
+        }
+
+        console.log('✅ Using wrapper element:', rightWrapper.className || 'fallback-container');
+
+        // Create container for voting controls
+        const container = document.createElement('div');
+        container.id = 'voting-tool-controls-container';
+        container.setAttribute('data-opengov-proposal', proposal.postId.toString());
+        
+        // Insert at the top of the right wrapper
+        rightWrapper.insertBefore(container, rightWrapper.firstChild);
+
+        // Create Vue app and mount the VotingControls component
+        const app = createApp(VotingControls, {
+            status: proposalData?.internal_status || 'Not started',
+            proposalId: proposal.postId,
+            editable: this.apiService.isAuthenticated(),
+            isAuthenticated: this.apiService.isAuthenticated(),
+            suggestedVote: proposalData?.suggested_vote || null
+        });
+
+        app.mount(container);
+
+        // Store the app instance for cleanup
+        this.injectedComponents.set(proposal.postId, app);
+
+        console.log('✅ Injected voting controls for proposal', proposal.postId);
+        
+        } catch (error) {
+            console.error('❌ Error injecting voting controls:', error);
+        } finally {
+            this.isInjecting = false;
+        }
+    }
+
+    /**
+     * Find PostDetails_rightWrapper element with dynamic class names
+     */
+    private findPostDetailsRightWrapper(): HTMLElement | null {
+        console.log('🔍 Looking for PostDetails_rightWrapper element...');
+        
+        // Try multiple selectors to find the right wrapper - ordered by likelihood
+        const selectors = [
+            // Most specific Polkassembly patterns first - these should match the dynamic classes
+            '[class*="PostDetails_rightWrapper__"]', // More specific to avoid false matches
+            '[class*="PostDetails_rightWrapper"]',
+            '[class*="rightWrapper__"]', // Match generated class patterns
+            '[class*="rightWrapper"]', 
+            '[class*="right-wrapper"]',
+            
+            // Common layout patterns
+            '.flex.flex-col.gap-6',
+            '.flex.flex-col.space-y-6', 
+            '.space-y-6',
+            '.gap-6',
+            
+            // Grid-based layouts
+            '.grid-cols-12 > div:last-child',
+            '.col-12.col-lg-8',
+            '.col-lg-8',
+            '.col-lg-4', // Sometimes it's a 4-column layout
+            '.col-md-8',
+            '.col-md-4',
+            
+            // Generic right-side patterns
+            '[class*="right-col"]',
+            '[class*="rightCol"]',
+            '[class*="right-side"]',
+            '[class*="rightSide"]',
+            '[class*="sidebar"]',
+            '[class*="side-bar"]',
+            
+            // Main content area patterns
+            'main .flex-col:last-child',
+            'main > div > div:last-child',
+            'main > div:last-child',
+            '.container .row > div:last-child',
+            '.container > div:last-child',
+            
+            // Flex-based patterns
+            '.flex > div:last-child',
+            '.flex-row > div:last-child',
+            '.d-flex > div:last-child',
+            
+            // Generic content patterns
+            '[class*="content"] > div:last-child',
+            '[class*="wrapper"] > div:last-child',
+            '.row > .col:last-child',
+            '.row > div:last-child',
+        ];
+
+        // Debug: log what elements we can find
+        console.log('🔍 Available elements on page:');
+        const allDivs = document.querySelectorAll('div[class*="col"], div[class*="flex"], div[class*="grid"], div[class*="right"], div[class*="wrapper"]');
+        console.log(`Found ${allDivs.length} potential wrapper elements`);
+        
+        for (let i = 0; i < Math.min(5, allDivs.length); i++) {
+            const div = allDivs[i] as HTMLElement;
+            console.log(`Element ${i}: ${div.tagName}.${div.className}`);
+        }
+
+        for (const selector of selectors) {
+            const elements = document.querySelectorAll(selector);
+            console.log(`🔍 Selector "${selector}" found ${elements.length} elements`);
+            
+            for (const element of elements) {
+                const htmlElement = element as HTMLElement;
+                
+                // More flexible content verification - look for any meaningful content
+                const hasTypicalContent = htmlElement.querySelector('[class*="card"]') || 
+                                        htmlElement.querySelector('[class*="panel"]') ||
+                                        htmlElement.querySelector('.bg-white') ||
+                                        htmlElement.querySelector('[class*="border"]') ||
+                                        htmlElement.querySelector('button') ||
+                                        htmlElement.querySelector('[class*="vote"]') ||
+                                        htmlElement.querySelector('[class*="details"]') ||
+                                        htmlElement.querySelector('[class*="info"]') ||
+                                        htmlElement.querySelector('[class*="summary"]') ||
+                                        htmlElement.querySelector('[class*="description"]') ||
+                                        htmlElement.querySelector('p') ||
+                                        htmlElement.querySelector('div > div') || // Nested divs indicate structure
+                                        htmlElement.textContent && htmlElement.textContent.trim().length > 30; // Reduced threshold
+                
+                // Check positioning and size
+                const rect = htmlElement.getBoundingClientRect();
+                const isReasonableSize = rect.width > 50 && rect.height > 50; // More lenient size requirements
+                const isVisible = rect.width > 0 && rect.height > 0;
+                
+                console.log(`🔍 Element check: selector="${selector}"`);
+                console.log(`    hasContent=${!!hasTypicalContent}, size=${rect.width}x${rect.height}, visible=${isVisible}`);
+                console.log(`    classes="${htmlElement.className}"`);
+                
+                // Accept element if it has content and reasonable size, OR if it's specifically targeted
+                const isSpecificTarget = selector.includes('PostDetails') || selector.includes('rightWrapper');
+                
+                if ((hasTypicalContent && isReasonableSize && isVisible) || (isSpecificTarget && isVisible)) {
+                    console.log('🎯 Found PostDetails_rightWrapper with selector:', selector);
+                    console.log('🎯 Element class:', htmlElement.className);
+                    console.log('🎯 Element position:', { left: rect.left, width: rect.width, height: rect.height });
+                    console.log('🎯 Element text preview:', htmlElement.textContent?.substring(0, 100));
+                    return htmlElement;
+                }
+            }
+        }
+
+        // More aggressive fallback: look for any container with voting-related content
+        console.log('🔍 Trying voting-related content fallback...');
+        const votingContainers = document.querySelectorAll('[class*="vote"], [class*="detail"], [class*="info"]');
+        for (const container of votingContainers) {
+            const htmlElement = container as HTMLElement;
+            const rect = htmlElement.getBoundingClientRect();
+            
+            if (rect.width > 200 && rect.height > 100) {
+                console.log('🎯 Found voting-related container as fallback');
+                console.log('🎯 Container class:', htmlElement.className);
+                return htmlElement;
+            }
+        }
+
+        // Final fallback: look for the largest container on the right side
+        console.log('🔍 Trying largest right-side container fallback...');
+        const allContainers = document.querySelectorAll('div');
+        let bestContainer: HTMLElement | null = null;
+        let bestScore = 0;
+        
+        for (const container of allContainers) {
+            const htmlElement = container as HTMLElement;
+            const rect = htmlElement.getBoundingClientRect();
+            
+            // Score based on size and position
+            const score = rect.width * rect.height * (rect.left > window.innerWidth * 0.4 ? 2 : 1);
+            
+            if (score > bestScore && rect.width > 200 && rect.height > 200) {
+                bestScore = score;
+                bestContainer = htmlElement;
+            }
+        }
+        
+        if (bestContainer) {
+            console.log('🎯 Found best container as final fallback');
+            console.log('🎯 Best container class:', bestContainer.className);
+            return bestContainer;
+        }
+
+        console.warn('❌ Could not find any suitable PostDetails_rightWrapper element');
+        console.warn('❌ Page structure may be different than expected');
+        return null;
     }
 
     /**
@@ -451,6 +768,63 @@ export class ContentInjector {
     }
 
     /**
+     * Handle proposal assignment events from components
+     */
+    private async handleProposalAssigned(event: Event): Promise<void> {
+        const customEvent = event as CustomEvent;
+        const { proposalId, action } = customEvent.detail;
+        
+        console.log('👤 Proposal assignment requested:', customEvent.detail);
+        
+        try {
+            // Get the current proposal to determine chain
+            const currentProposal = this.detector.detectCurrentProposal();
+            if (!currentProposal) {
+                console.error('Could not determine current proposal for assignment');
+                return;
+            }
+
+            // TODO: Implement assignment API call
+            console.log('Assignment would be processed for proposal', proposalId, 'on chain', currentProposal.chain);
+            
+            // For now, just show a success message
+            console.log('✅ Proposal assigned successfully (placeholder)');
+            
+        } catch (error) {
+            console.error('Failed to assign proposal:', error);
+        }
+    }
+
+    /**
+     * Handle vote change events from components
+     */
+    private async handleVoteChanged(event: Event): Promise<void> {
+        const customEvent = event as CustomEvent;
+        const { proposalId, vote, reason } = customEvent.detail;
+        
+        console.log('🗳️ Vote change requested:', customEvent.detail);
+        
+        try {
+            // Get the current proposal to determine chain
+            const currentProposal = this.detector.detectCurrentProposal();
+            if (!currentProposal) {
+                console.error('Could not determine current proposal for vote change');
+                return;
+            }
+
+            // TODO: Implement vote change API call
+            console.log('Vote change would be processed for proposal', proposalId, 'on chain', currentProposal.chain);
+            console.log('Vote:', vote, 'Reason:', reason);
+            
+            // For now, just show a success message
+            console.log('✅ Vote updated successfully (placeholder)');
+            
+        } catch (error) {
+            console.error('Failed to update vote:', error);
+        }
+    }
+
+    /**
      * Clean up existing injections
      */
     private cleanupExistingInjections(): void {
@@ -464,12 +838,23 @@ export class ContentInjector {
         });
         this.injectedComponents.clear();
 
-        // Remove injected DOM elements (both old inline and new floating)
+        // Remove injected DOM elements (status badges and voting controls)
         document.querySelectorAll('.opengov-status-badge, .opengov-status-badge-floating').forEach(element => {
             // Remove the wrapper if it exists
             const wrapper = element.parentElement;
             if (wrapper && wrapper.style.position === 'absolute' && wrapper.style.left === '-110px') {
                 wrapper.remove();
+            } else {
+                element.remove();
+            }
+        });
+
+        // Remove voting controls and fallback containers
+        document.querySelectorAll('#voting-tool-controls, #voting-tool-controls-container').forEach(element => {
+            // If it's in a fallback container we created, remove the whole container
+            const parent = element.parentElement;
+            if (parent && parent.style.position === 'fixed' && parent.style.right === '20px') {
+                parent.remove();
             } else {
                 element.remove();
             }
@@ -512,7 +897,12 @@ export class ContentInjector {
         this.cleanupFunctions.forEach(cleanup => cleanup());
         this.cleanupFunctions = [];
         
+        // Clear injection flag
+        this.isInjecting = false;
+        
         window.removeEventListener('statusChanged', this.handleStatusChange.bind(this) as EventListener);
+        window.removeEventListener('proposalAssigned', this.handleProposalAssigned.bind(this) as EventListener);
+        window.removeEventListener('voteChanged', this.handleVoteChanged.bind(this) as EventListener);
         
         // Clear caches
         this.proposalCache.clear();
