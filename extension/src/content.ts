@@ -11,6 +11,7 @@ window.opengovVotingToolInitialized = true
 
 import { createApp } from 'vue'
 import App from './App.vue'
+import { ContentInjector } from './utils/contentInjector'
 
 // Extend Window interface
 declare global {
@@ -37,19 +38,41 @@ declare global {
   }
 }
 
-// Create the extension container
-const extensionContainer = document.createElement('div')
-extensionContainer.id = 'opengov-voting-extension'
-extensionContainer.style.position = 'fixed'
-extensionContainer.style.top = '0'
-extensionContainer.style.left = '0'
-extensionContainer.style.width = '100%'
-extensionContainer.style.height = '100%'
-extensionContainer.style.pointerEvents = 'none'
-extensionContainer.style.zIndex = '999999'
+// Initialize content injector
+let contentInjector: ContentInjector | null = null;
 
-// Append to the page
-document.body.appendChild(extensionContainer)
+async function initializeExtension() {
+  try {
+    console.log('🚀 OpenGov VotingTool Extension - Starting initialization');
+    
+    // Create container for our floating hamburger menu
+    const extensionContainer = document.createElement('div');
+    extensionContainer.id = 'opengov-voting-extension';
+    extensionContainer.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 999999;
+    `;
+    document.body.appendChild(extensionContainer);
+
+    // Mount our App.vue with the floating hamburger and menu
+    const app = createApp(App);
+    app.mount('#opengov-voting-extension');
+    console.log('✅ Mounted floating hamburger menu');
+    
+    // Initialize content injector for status badges
+    contentInjector = ContentInjector.getInstance();
+    await contentInjector.initialize();
+    
+    console.log('✅ OpenGov VotingTool Extension - Initialization complete');
+  } catch (error) {
+    console.error('❌ OpenGov VotingTool Extension - Initialization failed:', error);
+  }
+}
 
 // Inject the inject.js script into the page context using the proper manifest-based approach
 const script = document.createElement('script')
@@ -106,5 +129,12 @@ setTimeout(() => {
   }, '*');
 }, 1000);
 
-// Initialize the extension
-createApp(App).mount('#opengov-voting-extension') 
+// Initialize the extension after a short delay to ensure the page is loaded
+setTimeout(initializeExtension, 1500);
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+  if (contentInjector) {
+    contentInjector.cleanup();
+  }
+}); 
