@@ -19,6 +19,8 @@ export class ContentInjector {
     private cleanupFunctions: (() => void)[] = [];
     private currentActiveTab: ActiveTabInfo | null = null;
     private isInjecting: boolean = false;
+    private isInitialized: boolean = false;
+    private currentProposalId: number | null = null;
 
     constructor() {
         this.detector = ProposalDetector.getInstance();
@@ -37,12 +39,19 @@ export class ContentInjector {
      * Initialize the content injector
      */
     async initialize(): Promise<void> {
+        if (this.isInitialized) {
+            console.log('ℹ️ Content injector already initialized, skipping...');
+            return;
+        }
+
         console.log('🚀 Initializing OpenGov VotingTool Content Injector');
 
         if (!this.detector.isSupportedSite()) {
             console.log('❌ Not on a supported site');
             return;
         }
+
+        this.isInitialized = true;
 
         // Check initial page and tab state
         this.currentActiveTab = this.tabDetector.detectActiveTab();
@@ -73,6 +82,9 @@ export class ContentInjector {
         // Listen for voting controls events
         window.addEventListener('proposalAssigned', this.handleProposalAssigned.bind(this) as EventListener);
         window.addEventListener('voteChanged', this.handleVoteChanged.bind(this) as EventListener);
+        
+        // Listen for authentication state changes
+        window.addEventListener('authStateChanged', this.handleAuthStateChanged.bind(this) as EventListener);
 
         console.log('✅ Content injector initialized');
     }
@@ -85,10 +97,19 @@ export class ContentInjector {
         
         // If we're on a category page, re-render all badges based on new tab state
         if (this.tabDetector.isOnCategoryPage()) {
-            // Clean up existing injections and re-inject based on new tab state
-            this.cleanupExistingInjections();
+            // Only clean up and re-inject if we're actually showing different content
+            // Tab changes on the same proposal shouldn't remove the voting controls
+            console.log('🔄 Tab change detected on category page, checking if re-injection needed');
             await this.handlePageChange();
         }
+    }
+
+    /**
+     * Re-inject all components to reflect authentication changes
+     */
+    public async refreshAllComponents(): Promise<void> {
+        console.log('🔄 Refreshing all components due to authentication change');
+        await this.handlePageChange();
     }
 
     /**
@@ -98,16 +119,31 @@ export class ContentInjector {
         console.log('📄 Page change detected, checking for proposals...');
         console.log('🔍 Current URL:', window.location.href);
 
-        // Clean up existing injections first
-        this.cleanupExistingInjections();
+        // Only clean up if we're actually changing to a different page/proposal
+        // This prevents unnecessary removal and re-injection of the same components
 
         if (this.detector.isProposalPage()) {
             const proposal = this.detector.detectCurrentProposal();
             if (proposal) {
                 console.log('📋 Detected single proposal:', proposal);
-                await this.injectProposalComponents(proposal);
+                
+                // Only cleanup and re-inject if the proposal has changed
+                if (this.currentProposalId !== proposal.postId) {
+                    console.log(`🔄 Proposal changed from ${this.currentProposalId} to ${proposal.postId}, cleaning up...`);
+                    this.cleanupExistingInjections();
+                    this.currentProposalId = proposal.postId;
+                    await this.injectProposalComponents(proposal);
+                } else {
+                    console.log(`✅ Same proposal ${proposal.postId}, skipping cleanup and re-injection`);
+                }
             } else {
                 console.log('❌ No proposal detected on proposal page');
+                // If no proposal is detected but we had one before, cleanup
+                if (this.currentProposalId !== null) {
+                    console.log('🧹 No proposal detected, cleaning up previous injections');
+                    this.cleanupExistingInjections();
+                    this.currentProposalId = null;
+                }
             }
         } else {
             // Check for proposal lists
@@ -136,9 +172,18 @@ export class ContentInjector {
                 proposals.forEach((p, index) => {
                     console.log(`  Proposal ${index}: #${p.postId} - ${p.title.substring(0, 50)}...`);
                 });
+                // For list pages, we need to cleanup and re-inject as the list might have changed
+                this.cleanupExistingInjections();
+                this.currentProposalId = null;
                 await this.injectListPageComponents(proposals);
             } else {
                 console.log('❌ No proposals detected on list page');
+                // If we're not on any recognizable page, cleanup
+                if (this.currentProposalId !== null || this.injectedComponents.size > 0) {
+                    console.log('🧹 Not on a recognized page, cleaning up all injections');
+                    this.cleanupExistingInjections();
+                    this.currentProposalId = null;
+                }
                 // Debug: let's see what elements are actually on the page
                 const allTrs = document.querySelectorAll('tr');
                 console.log('🔍 All TR elements found:', allTrs.length);
@@ -341,13 +386,32 @@ export class ContentInjector {
         // Insert at the top of the right wrapper
         rightWrapper.insertBefore(container, rightWrapper.firstChild);
 
+        // Fetch current assignment data from the database (single source of truth)
+        let assignedTo: string | null = null;
+        try {
+            const assignmentResult = await this.apiService.getProposalAssignments(proposal.postId, proposal.chain);
+            if (assignmentResult.success && assignmentResult.actions) {
+                // Find the "responsible_person" assignment (the main assignee)
+                const responsiblePersonAction = assignmentResult.actions.find(
+                    (action: any) => action.role_type === 'responsible_person'
+                );
+                if (responsiblePersonAction) {
+                    assignedTo = responsiblePersonAction.wallet_address || responsiblePersonAction.team_member_id;
+                    console.log(`📋 Proposal ${proposal.postId} is assigned to:`, assignedTo);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch assignment data:', error);
+        }
+
         // Create Vue app and mount the VotingControls component
         const app = createApp(VotingControls, {
             status: proposalData?.internal_status || 'Not started',
             proposalId: proposal.postId,
             editable: this.apiService.isAuthenticated(),
             isAuthenticated: this.apiService.isAuthenticated(),
-            suggestedVote: proposalData?.suggested_vote || null
+            suggestedVote: proposalData?.suggested_vote || null,
+            assignedTo: assignedTo
         });
 
         app.mount(container);
@@ -784,15 +848,42 @@ export class ContentInjector {
                 return;
             }
 
-            // TODO: Implement assignment API call
-            console.log('Assignment would be processed for proposal', proposalId, 'on chain', currentProposal.chain);
+            // Call the assignment API
+            const result = await this.apiService.assignProposal(
+                proposalId, 
+                currentProposal.chain, 
+                action
+            );
             
-            // For now, just show a success message
-            console.log('✅ Proposal assigned successfully (placeholder)');
+            if (result.success) {
+                console.log('✅ Proposal assigned successfully');
+                
+                // Clear cache to ensure fresh data is fetched
+                const cacheKey = `${currentProposal.chain}-${proposalId}`;
+                this.proposalCache.delete(cacheKey);
+                
+                // Re-inject components to reflect the updated assignment
+                await this.handlePageChange();
+            } else {
+                console.error('❌ Failed to assign proposal:', result.error);
+            }
             
         } catch (error) {
-            console.error('Failed to assign proposal:', error);
+            console.error('❌ Failed to assign proposal:', error);
         }
+    }
+
+    /**
+     * Handle authentication state changes
+     */
+    private async handleAuthStateChanged(event: Event): Promise<void> {
+        const customEvent = event as CustomEvent;
+        const { isAuthenticated } = customEvent.detail;
+        
+        console.log('🔐 Authentication state changed:', isAuthenticated);
+        
+        // Refresh all components to reflect the new authentication state
+        await this.refreshAllComponents();
     }
 
     /**
@@ -903,9 +994,14 @@ export class ContentInjector {
         window.removeEventListener('statusChanged', this.handleStatusChange.bind(this) as EventListener);
         window.removeEventListener('proposalAssigned', this.handleProposalAssigned.bind(this) as EventListener);
         window.removeEventListener('voteChanged', this.handleVoteChanged.bind(this) as EventListener);
+        window.removeEventListener('authStateChanged', this.handleAuthStateChanged.bind(this) as EventListener);
         
         // Clear caches
         this.proposalCache.clear();
+        
+        // Reset initialization state
+        this.isInitialized = false;
+        this.currentProposalId = null;
         
         console.log('🧹 Content injector cleaned up');
     }
