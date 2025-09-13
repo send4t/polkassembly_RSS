@@ -247,7 +247,68 @@ export class MultisigService {
    */
   async getTeamMemberByAddress(walletAddress: string, network: "Polkadot" | "Kusama" = "Polkadot"): Promise<MultisigMember | null> {
     const members = await this.getCachedTeamMembers(network);
-    return members.find(member => member.wallet_address === walletAddress) || null;
+    
+    // Try exact match first
+    let member = members.find(m => m.wallet_address === walletAddress);
+    
+    // If no exact match, try the converted network-specific address
+    if (!member) {
+      const networkAddress = this.convertToNetworkAddress(walletAddress, network);
+      member = members.find(m => m.wallet_address === networkAddress);
+    }
+    
+    // If still no match, try case-insensitive and trimmed comparison
+    if (!member) {
+      const normalizedWalletAddress = walletAddress.trim().toLowerCase();
+      member = members.find(m => 
+        m.wallet_address.trim().toLowerCase() === normalizedWalletAddress
+      );
+    }
+    
+    return member || null;
+  }
+
+  /**
+   * Find team member with flexible address matching
+   * Used for matching addresses that might be in different formats
+   */
+  findMemberByAddress(members: MultisigMember[], walletAddress: string, network: "Polkadot" | "Kusama" = "Polkadot"): MultisigMember | null {
+    logger.info({ 
+      searchingFor: walletAddress, 
+      network, 
+      totalMembers: members.length,
+      memberAddresses: members.map(m => m.wallet_address).slice(0, 5) // Show first 5 for debugging
+    }, 'Searching for team member with flexible address matching');
+    
+    // Try exact match first
+    let member = members.find(m => m.wallet_address === walletAddress);
+    if (member) {
+      logger.info({ walletAddress, foundMember: member.team_member_name }, 'Found exact address match');
+      return member;
+    }
+    
+    // If no exact match, try the converted network-specific address
+    const networkAddress = this.convertToNetworkAddress(walletAddress, network);
+    logger.info({ originalAddress: walletAddress, networkAddress, network }, 'Trying network-specific address conversion');
+    
+    member = members.find(m => m.wallet_address === networkAddress);
+    if (member) {
+      logger.info({ networkAddress, foundMember: member.team_member_name }, 'Found network-converted address match');
+      return member;
+    }
+    
+    // If still no match, try case-insensitive and trimmed comparison
+    const normalizedWalletAddress = walletAddress.trim().toLowerCase();
+    member = members.find(m => 
+      m.wallet_address.trim().toLowerCase() === normalizedWalletAddress
+    );
+    if (member) {
+      logger.info({ normalizedWalletAddress, foundMember: member.team_member_name }, 'Found normalized address match');
+      return member;
+    }
+    
+    logger.warn({ walletAddress, networkAddress, normalizedWalletAddress }, 'No address match found with any method');
+    return null;
   }
 }
 

@@ -8,6 +8,7 @@ import { ProposalDetector, type DetectedProposal } from './proposalDetector';
 import { TabDetector, type ActiveTabInfo } from './tabDetector';
 import { ApiService } from './apiService';
 import type { ProposalData, InternalStatus } from '../types';
+import type { TeamMember } from '../types';
 
 export class ContentInjector {
     private static instance: ContentInjector;
@@ -81,10 +82,15 @@ export class ContentInjector {
         
         // Listen for voting controls events
         window.addEventListener('proposalAssigned', this.handleProposalAssigned.bind(this) as EventListener);
+        window.addEventListener('proposalUnassigned', this.handleProposalUnassigned.bind(this) as EventListener);
         window.addEventListener('voteChanged', this.handleVoteChanged.bind(this) as EventListener);
+        window.addEventListener('suggestedVoteChanged', this.handleSuggestedVoteChanged.bind(this) as EventListener);
         
         // Listen for authentication state changes
         window.addEventListener('authStateChanged', this.handleAuthStateChanged.bind(this) as EventListener);
+        
+        // Listen for wallet connection requests
+        window.addEventListener('requestWalletConnection', this.handleWalletConnectionRequest.bind(this) as EventListener);
 
         console.log('✅ Content injector initialized');
     }
@@ -388,17 +394,30 @@ export class ContentInjector {
 
         // Fetch current assignment data from the database (single source of truth)
         let assignedTo: string | null = null;
+        let teamMembers: TeamMember[] = [];
         try {
-            const assignmentResult = await this.apiService.getProposalAssignments(proposal.postId, proposal.chain);
-            if (assignmentResult.success && assignmentResult.actions) {
-                // Find the "responsible_person" assignment (the main assignee)
-                const responsiblePersonAction = assignmentResult.actions.find(
-                    (action: any) => action.role_type === 'responsible_person'
+            // Get assignment from proposal data
+            assignedTo = proposalData?.assigned_to || null;
+            if (assignedTo) {
+                console.log(`📋 Proposal ${proposal.postId} is assigned to:`, assignedTo);
+            }
+            
+            // Fetch team members for name resolution
+            const agreementSummary = await this.apiService.getAgreementSummary(proposal.postId, proposal.chain);
+            if (agreementSummary) {
+                // Collect all unique team members from different arrays
+                const allMembers = [
+                    ...agreementSummary.agreed_members,
+                    ...agreementSummary.pending_members,
+                    ...agreementSummary.recused_members,
+                    ...agreementSummary.to_be_discussed_members
+                ];
+                
+                // Remove duplicates by address
+                teamMembers = allMembers.filter((member, index, self) => 
+                    index === self.findIndex(m => m.address === member.address)
                 );
-                if (responsiblePersonAction) {
-                    assignedTo = responsiblePersonAction.wallet_address || responsiblePersonAction.team_member_id;
-                    console.log(`📋 Proposal ${proposal.postId} is assigned to:`, assignedTo);
-                }
+                console.log(`👥 Found ${teamMembers.length} team members for name resolution`);
             }
         } catch (error) {
             console.warn('⚠️ Could not fetch assignment data:', error);
@@ -411,7 +430,10 @@ export class ContentInjector {
             editable: this.apiService.isAuthenticated(),
             isAuthenticated: this.apiService.isAuthenticated(),
             suggestedVote: proposalData?.suggested_vote || null,
-            assignedTo: assignedTo
+            reasonForVote: proposalData?.reason_for_vote || null,
+            assignedTo: assignedTo,
+            teamMembers: teamMembers,
+            chain: proposal.chain
         });
 
         app.mount(container);
@@ -759,7 +781,69 @@ export class ContentInjector {
         }
     }
 
-
+    /**
+     * Update existing components with fresh data without full re-injection
+     */
+    private async updateExistingComponents(proposalId: number, proposalData: ProposalData | null): Promise<void> {
+        console.log('🔄 Updating existing components with new data for proposal:', proposalId);
+        
+        try {
+            // Get team members for name resolution
+            let teamMembers: TeamMember[] = [];
+            if (proposalData?.chain) {
+                const agreementSummary = await this.apiService.getAgreementSummary(proposalId, proposalData.chain);
+                if (agreementSummary) {
+                    // Collect all unique team members from different arrays
+                    const allMembers = [
+                        ...agreementSummary.agreed_members,
+                        ...agreementSummary.pending_members,
+                        ...agreementSummary.recused_members,
+                        ...agreementSummary.to_be_discussed_members
+                    ];
+                    
+                    // Remove duplicates by address
+                    teamMembers = allMembers.filter((member, index, self) => 
+                        index === self.findIndex(m => m.address === member.address)
+                    );
+                }
+            }
+            
+            // Unmount existing component if it exists
+            const existingApp = this.injectedComponents.get(proposalId);
+            if (existingApp) {
+                existingApp.unmount();
+                this.injectedComponents.delete(proposalId);
+            }
+            
+            // Find the container
+            const container = document.getElementById('voting-tool-controls-container');
+            if (!container) {
+                console.warn('⚠️ Could not find controls container for update');
+                return;
+            }
+            
+            // Create new app with updated data
+            const app = createApp(VotingControls, {
+                status: proposalData?.internal_status || 'Not started',
+                proposalId: proposalId,
+                editable: this.apiService.isAuthenticated(),
+                isAuthenticated: this.apiService.isAuthenticated(),
+                suggestedVote: proposalData?.suggested_vote || null,
+                reasonForVote: proposalData?.reason_for_vote || null,
+                assignedTo: proposalData?.assigned_to || null,
+                teamMembers: teamMembers,
+                chain: proposalData?.chain || 'Polkadot'
+            });
+            
+            app.mount(container);
+            this.injectedComponents.set(proposalId, app);
+            
+            console.log('✅ Updated existing component with fresh data');
+            
+        } catch (error) {
+            console.error('❌ Error updating existing components:', error);
+        }
+    }
 
     /**
      * Get proposal data from API with caching
@@ -793,6 +877,13 @@ export class ContentInjector {
         console.log('📝 Status change requested:', customEvent.detail);
         
         try {
+            // Check authentication first
+            if (!this.apiService.isAuthenticated()) {
+                console.error('❌ User not authenticated for manual status change');
+                alert('Please connect your wallet to change proposal status.');
+                return;
+            }
+
             // Get the current proposal to determine chain
             const currentProposal = this.detector.detectCurrentProposal();
             if (!currentProposal) {
@@ -800,13 +891,17 @@ export class ContentInjector {
                 return;
             }
 
+            console.log(`🔄 Manual status change: ${proposalId} from "${currentProposal.chain}" to "${newStatus}"`);
+            console.log(`🔐 Authentication status: ${this.apiService.isAuthenticated()}`);
+
             // Update status via API
             const result = await this.apiService.updateProposalStatus(
                 proposalId,
                 currentProposal.chain,
-                newStatus,
-                reason
+                newStatus
             );
+
+            console.log(`📊 Manual status change result:`, result);
 
             if (result.success) {
                 // Update cache
@@ -814,20 +909,22 @@ export class ContentInjector {
                 const cachedData = this.proposalCache.get(cacheKey);
                 if (cachedData) {
                     cachedData.internal_status = newStatus;
+                    cachedData.updated_at = new Date().toISOString();
                     this.proposalCache.set(cacheKey, cachedData);
                 }
 
-                // Re-inject components to reflect the change
-                await this.handlePageChange();
+                // Get fresh proposal data and update UI immediately
+                const updatedProposalData = await this.getProposalData(proposalId, currentProposal.chain);
+                await this.updateExistingComponents(proposalId, updatedProposalData);
                 
-                console.log('✅ Status updated successfully');
+                console.log('✅ Status updated successfully in database');
             } else {
-                console.error('❌ Failed to update status:', result.error);
-                // TODO: Show error message to user
+                console.error('❌ Failed to update status in database:', result.error);
+                alert(`Failed to update status: ${result.error || 'Unknown error'}`);
             }
         } catch (error) {
-            console.error('❌ Error updating status:', error);
-            // TODO: Show error message to user
+            console.error('❌ Error updating status in database:', error);
+            alert('Failed to update status. Please check your connection and try again.');
         }
     }
 
@@ -836,7 +933,7 @@ export class ContentInjector {
      */
     private async handleProposalAssigned(event: Event): Promise<void> {
         const customEvent = event as CustomEvent;
-        const { proposalId, action } = customEvent.detail;
+        const { proposalId, action, autoStatus } = customEvent.detail;
         
         console.log('👤 Proposal assignment requested:', customEvent.detail);
         
@@ -845,6 +942,13 @@ export class ContentInjector {
             const currentProposal = this.detector.detectCurrentProposal();
             if (!currentProposal) {
                 console.error('Could not determine current proposal for assignment');
+                return;
+            }
+
+            // Check if user is authenticated
+            if (!this.apiService.isAuthenticated()) {
+                console.error('User not authenticated for assignment');
+                alert('Please authenticate to assign proposals');
                 return;
             }
 
@@ -858,18 +962,109 @@ export class ContentInjector {
             if (result.success) {
                 console.log('✅ Proposal assigned successfully');
                 
+                // If autoStatus is specified, also update the status
+                if (autoStatus) {
+                    console.log(`🔄 Auto-updating status to: ${autoStatus}`);
+                    const statusResult = await this.apiService.updateProposalStatus(
+                        proposalId,
+                        currentProposal.chain,
+                        autoStatus
+                    );
+                    
+                    if (statusResult.success) {
+                        console.log('✅ Status auto-updated successfully');
+                    } else {
+                        console.error('❌ Failed to auto-update status:', statusResult.error);
+                    }
+                }
+                
                 // Clear cache to ensure fresh data is fetched
                 const cacheKey = `${currentProposal.chain}-${proposalId}`;
                 this.proposalCache.delete(cacheKey);
                 
-                // Re-inject components to reflect the updated assignment
-                await this.handlePageChange();
+                // Get fresh proposal data and update UI immediately
+                const updatedProposalData = await this.getProposalData(proposalId, currentProposal.chain);
+                
+                // Update existing component props instead of full re-injection
+                await this.updateExistingComponents(proposalId, updatedProposalData);
+                
             } else {
                 console.error('❌ Failed to assign proposal:', result.error);
+                alert(`Failed to assign proposal: ${result.error || 'Unknown error'}`);
             }
             
         } catch (error) {
             console.error('❌ Failed to assign proposal:', error);
+            alert('Failed to assign proposal. Please check your connection and try again.');
+        }
+    }
+
+    /**
+     * Handle suggested vote changes from components
+     */
+    private async handleSuggestedVoteChanged(event: Event): Promise<void> {
+        const customEvent = event as CustomEvent;
+        const { proposalId, vote, reason } = customEvent.detail;
+        
+        console.log('🗳️ Suggested vote change requested:', customEvent.detail);
+        
+        try {
+            // Get the current proposal to determine chain
+            const currentProposal = this.detector.detectCurrentProposal();
+            if (!currentProposal) {
+                console.error('Could not determine current proposal for vote change');
+                return;
+            }
+
+            // Update suggested vote via API
+            const result = await this.apiService.updateSuggestedVote(
+                proposalId,
+                currentProposal.chain,
+                vote,
+                reason
+            );
+
+            if (result.success) {
+                // Update cache
+                const cacheKey = `${currentProposal.chain}-${proposalId}`;
+                const cachedData = this.proposalCache.get(cacheKey);
+                if (cachedData) {
+                    cachedData.suggested_vote = vote;
+                    cachedData.reason_for_vote = reason;
+                    cachedData.updated_at = new Date().toISOString();
+                    this.proposalCache.set(cacheKey, cachedData);
+                }
+
+                // Get fresh proposal data and update UI immediately
+                const updatedProposalData = await this.getProposalData(proposalId, currentProposal.chain);
+                await this.updateExistingComponents(proposalId, updatedProposalData);
+                
+                console.log('✅ Suggested vote updated successfully in database');
+            } else {
+                console.error('❌ Failed to update suggested vote in database:', result.error);
+                alert(`Failed to update suggested vote: ${result.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('❌ Error updating suggested vote in database:', error);
+            alert('Failed to update suggested vote. Please check your connection and try again.');
+        }
+    }
+
+    /**
+     * Handle wallet connection requests from components
+     */
+    private handleWalletConnectionRequest(event: Event): void {
+        console.log('🔗 Wallet connection requested from component');
+        
+        // Find the floating hamburger button and trigger it
+        const hamburgerButton = document.querySelector('.floating-button') as HTMLElement;
+        if (hamburgerButton) {
+            hamburgerButton.click();
+            console.log('✅ Opened wallet connection menu');
+        } else {
+            console.warn('⚠️ Could not find floating hamburger button');
+            // Fallback: show a simple alert
+            alert('Please click the pink floating button in the bottom-right corner to connect your wallet.');
         }
     }
 
@@ -887,13 +1082,65 @@ export class ContentInjector {
     }
 
     /**
+     * Handle proposal unassignment events from components
+     */
+    private async handleProposalUnassigned(event: Event): Promise<void> {
+        const customEvent = event as CustomEvent;
+        const { proposalId } = customEvent.detail;
+        
+        console.log('👤 Proposal unassignment requested:', customEvent.detail);
+        
+        try {
+            // Get the current proposal to determine chain
+            const currentProposal = this.detector.detectCurrentProposal();
+            if (!currentProposal) {
+                console.error('Could not determine current proposal for unassignment');
+                return;
+            }
+
+            // Check if user is authenticated
+            if (!this.apiService.isAuthenticated()) {
+                console.error('User not authenticated for unassignment');
+                alert('Please authenticate to unassign proposals');
+                return;
+            }
+
+            // Call the unassignment API (DELETE the responsible_person action)
+            const result = await this.apiService.deleteTeamAction(
+                proposalId, 
+                currentProposal.chain
+            );
+            
+            if (result.success) {
+                console.log('✅ Proposal unassigned successfully');
+                
+                // Clear cache to ensure fresh data is fetched
+                const cacheKey = `${currentProposal.chain}-${proposalId}`;
+                this.proposalCache.delete(cacheKey);
+                
+                // Get fresh proposal data and update UI immediately
+                const updatedProposalData = await this.getProposalData(proposalId, currentProposal.chain);
+                await this.updateExistingComponents(proposalId, updatedProposalData);
+                
+            } else {
+                console.error('❌ Failed to unassign proposal:', result.error);
+                alert(`Failed to unassign proposal: ${result.error || 'Unknown error'}`);
+            }
+            
+        } catch (error) {
+            console.error('❌ Failed to unassign proposal:', error);
+            alert('Failed to unassign proposal. Please check your connection and try again.');
+        }
+    }
+
+    /**
      * Handle vote change events from components
      */
     private async handleVoteChanged(event: Event): Promise<void> {
         const customEvent = event as CustomEvent;
         const { proposalId, vote, reason } = customEvent.detail;
         
-        console.log('🗳️ Vote change requested:', customEvent.detail);
+        console.log('🗳️ Final vote change requested:', customEvent.detail);
         
         try {
             // Get the current proposal to determine chain
@@ -903,15 +1150,40 @@ export class ContentInjector {
                 return;
             }
 
-            // TODO: Implement vote change API call
-            console.log('Vote change would be processed for proposal', proposalId, 'on chain', currentProposal.chain);
-            console.log('Vote:', vote, 'Reason:', reason);
-            
-            // For now, just show a success message
-            console.log('✅ Vote updated successfully (placeholder)');
+            // Check if user is authenticated
+            if (!this.apiService.isAuthenticated()) {
+                console.error('User not authenticated for vote change');
+                alert('Please authenticate to change final votes');
+                return;
+            }
+
+            // Update final vote via API
+            const result = await this.apiService.updateFinalVote(
+                proposalId,
+                currentProposal.chain,
+                vote,
+                reason
+            );
+
+            if (result.success) {
+                console.log('✅ Final vote updated successfully');
+                
+                // Clear cache to ensure fresh data is fetched
+                const cacheKey = `${currentProposal.chain}-${proposalId}`;
+                this.proposalCache.delete(cacheKey);
+                
+                // Get fresh proposal data and update UI immediately
+                const updatedProposalData = await this.getProposalData(proposalId, currentProposal.chain);
+                await this.updateExistingComponents(proposalId, updatedProposalData);
+                
+            } else {
+                console.error('❌ Failed to update final vote:', result.error);
+                alert(`Failed to update final vote: ${result.error || 'Unknown error'}`);
+            }
             
         } catch (error) {
-            console.error('Failed to update vote:', error);
+            console.error('❌ Failed to update final vote:', error);
+            alert('Failed to update final vote. Please check your connection and try again.');
         }
     }
 
@@ -993,8 +1265,11 @@ export class ContentInjector {
         
         window.removeEventListener('statusChanged', this.handleStatusChange.bind(this) as EventListener);
         window.removeEventListener('proposalAssigned', this.handleProposalAssigned.bind(this) as EventListener);
+        window.removeEventListener('proposalUnassigned', this.handleProposalUnassigned.bind(this) as EventListener);
         window.removeEventListener('voteChanged', this.handleVoteChanged.bind(this) as EventListener);
+        window.removeEventListener('suggestedVoteChanged', this.handleSuggestedVoteChanged.bind(this) as EventListener);
         window.removeEventListener('authStateChanged', this.handleAuthStateChanged.bind(this) as EventListener);
+        window.removeEventListener('requestWalletConnection', this.handleWalletConnectionRequest.bind(this) as EventListener);
         
         // Clear caches
         this.proposalCache.clear();

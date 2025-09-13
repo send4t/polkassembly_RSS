@@ -58,6 +58,87 @@ router.get("/parent", authenticateToken, async (req: Request, res: Response) => 
 });
 
 /**
+ * GET /dao/referendum/:referendumId
+ * Get a specific referendum with team assignments
+ */
+router.get("/referendum/:referendumId", async (req: Request, res: Response) => {
+  try {
+    const { referendumId } = req.params;
+    const { chain } = req.query;
+    
+    // Validate chain parameter
+    if (!chain) {
+      return res.status(400).json({
+        success: false,
+        error: "Chain parameter is required"
+      });
+    }
+    
+    // Get referendum data with team assignments
+    const sql = `
+      SELECT 
+        r.*,
+        sc.necessity_score, sc.funding_score, sc.competition_score,
+        sc.blueprint_score, sc.track_record_score, sc.reports_score,
+        sc.synergy_score, sc.revenue_score, sc.security_score,
+        sc.open_source_score, sc.ref_score,
+        vd.suggested_vote, vd.final_vote, vd.vote_executed, vd.vote_executed_date
+      FROM referendums r
+      LEFT JOIN scoring_criteria sc ON r.id = sc.referendum_id
+      LEFT JOIN voting_decisions vd ON r.id = vd.referendum_id
+      WHERE r.post_id = ? AND r.chain = ?
+    `;
+    
+    const referendum = await db.get(sql, [referendumId, chain]);
+    
+    if (!referendum) {
+      return res.status(404).json({
+        success: false,
+        error: `Referendum ${referendumId} not found on ${chain} network`
+      });
+    }
+    
+    // Get team assignments separately
+    const assignmentsSql = `
+      SELECT rtr.*, 
+             CASE 
+               WHEN rtr.role_type = 'responsible_person' THEN rtr.team_member_id
+               ELSE NULL 
+             END as assigned_to
+      FROM referendum_team_roles rtr
+      WHERE rtr.referendum_id = ?
+      ORDER BY rtr.created_at DESC
+    `;
+    
+    const assignments = await db.all(assignmentsSql, [referendum.id]);
+    
+    // Find who is assigned as responsible person
+    const responsiblePerson = assignments.find(a => a.role_type === 'responsible_person');
+    
+    // Add assignment information to referendum data
+    const enrichedReferendum = {
+      ...referendum,
+      assigned_to: responsiblePerson?.team_member_id || null,
+      team_assignments: assignments
+    };
+    
+    logger.info({ referendumId, chain, assignmentCount: assignments.length }, "Retrieved referendum with assignments");
+    
+    res.json({
+      success: true,
+      referendum: enrichedReferendum
+    });
+    
+  } catch (error) {
+    logger.error({ error, referendumId: req.params.referendumId }, "Error fetching referendum");
+    res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
+
+/**
  * GET /dao/referendum/:referendumId/actions
  * Get governance actions for a specific referendum during discussion period
  */
@@ -185,6 +266,23 @@ router.post("/referendum/:referendumId/action", requireTeamMember, async (req: R
       [referendum.id, req.user.address]
     );
     
+    // Special handling for responsible_person assignment
+    if (action === 'responsible_person') {
+      // Check if someone else is already assigned as responsible person
+      const currentResponsible = await db.get(
+        "SELECT team_member_id FROM referendum_team_roles WHERE referendum_id = ? AND role_type = 'responsible_person'",
+        [referendum.id]
+      );
+      
+      if (currentResponsible && currentResponsible.team_member_id !== req.user.address) {
+        return res.status(409).json({
+          success: false,
+          error: `This proposal is already assigned to another team member. Please ask them to unassign first, or contact an admin.`,
+          current_assignee: currentResponsible.team_member_id
+        });
+      }
+    }
+    
     if (existingAction) {
       // Update existing action
       await db.run(
@@ -240,6 +338,288 @@ router.post("/referendum/:referendumId/action", requireTeamMember, async (req: R
     
   } catch (error) {
     logger.error({ error, referendumId: req.params.referendumId }, "Error assigning user governance action for referendum");
+    res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
+
+/**
+ * GET /dao/referendum/:referendumId/agreement-summary
+ * Get agreement summary for a specific referendum
+ */
+router.get("/referendum/:referendumId/agreement-summary", async (req: Request, res: Response) => {
+  try {
+    const { referendumId } = req.params;
+    const { chain } = req.query;
+    
+    // Validate chain parameter
+    if (!chain) {
+      return res.status(400).json({
+        success: false,
+        error: "Chain parameter is required"
+      });
+    }
+    
+    // Check if referendum exists using post_id and chain
+    const referendum = await db.get(
+      "SELECT id, title FROM referendums WHERE post_id = ? AND chain = ?",
+      [referendumId, chain]
+    );
+    
+    if (!referendum) {
+      return res.status(404).json({
+        success: false,
+        error: `Referendum ${referendumId} not found on ${chain} network`
+      });
+    }
+    
+    // Get all team actions for this referendum
+    const actions = await db.all(`
+      SELECT rtr.team_member_id as wallet_address, rtr.role_type, rtr.created_at
+      FROM referendum_team_roles rtr
+      WHERE rtr.referendum_id = ?
+      ORDER BY rtr.created_at DESC
+    `, [referendum.id]);
+    
+    // Get team members from multisig service for member names
+    const teamMembers = await multisigService.getCachedTeamMembers();
+    
+    // Process actions into agreement summary
+    const agreed_members: Array<{ address: string; name: string }> = [];
+    const pending_members: Array<{ address: string; name: string }> = [];
+    const recused_members: Array<{ address: string; name: string }> = [];
+    const to_be_discussed_members: Array<{ address: string; name: string }> = [];
+    let vetoed = false;
+    let veto_by: string | null = null;
+    let veto_reason: string | null = null;
+    
+    // Create a map of all team members
+    const allMembers = teamMembers.map(member => ({
+      address: member.wallet_address,
+      name: member.team_member_name || `Multisig Member (${member.network})`
+    }));
+    
+    // Process actions with flexible address matching
+    const actionMap = new Map();
+    actions.forEach(action => {
+      actionMap.set(action.wallet_address, action);
+    });
+    
+    allMembers.forEach(member => {
+      // Try to find action for this member with flexible address matching
+      let action = actionMap.get(member.address);
+      
+      // If no direct match, try to find by flexible address matching
+      if (!action) {
+        for (const [actionAddress, actionData] of actionMap.entries()) {
+          const matchingMember = multisigService.findMemberByAddress(teamMembers, actionAddress, chain as "Polkadot" | "Kusama");
+          if (matchingMember && matchingMember.wallet_address === member.address) {
+            action = actionData;
+            break;
+          }
+        }
+      }
+      
+      if (!action) {
+        // No action taken - pending
+        pending_members.push(member);
+      } else {
+        switch (action.role_type) {
+          case 'agree':
+            agreed_members.push(member);
+            break;
+          case 'no_way':
+            vetoed = true;
+            veto_by = member.name;
+            // TODO: Get veto reason from a separate field or table
+            break;
+          case 'recuse':
+            recused_members.push(member);
+            break;
+          case 'to_be_discussed':
+            to_be_discussed_members.push(member);
+            break;
+          case 'responsible_person':
+            // Responsible person doesn't count as agreement by default
+            pending_members.push(member);
+            break;
+          default:
+            pending_members.push(member);
+        }
+      }
+    });
+    
+    const summary = {
+      total_agreements: agreed_members.length,
+      required_agreements: 4, // Default, could be configurable
+      agreed_members,
+      pending_members,
+      recused_members,
+      to_be_discussed_members,
+      vetoed,
+      veto_by,
+      veto_reason
+    };
+    
+    logger.info({ referendumId, chain, summary }, "Retrieved agreement summary");
+    
+    res.json({
+      success: true,
+      summary
+    });
+    
+  } catch (error) {
+    logger.error({ error, referendumId: req.params.referendumId }, "Error fetching agreement summary");
+    res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
+
+/**
+ * GET /dao/referendum/:referendumId/comments
+ * Get comments for a specific referendum
+ */
+router.get("/referendum/:referendumId/comments", async (req: Request, res: Response) => {
+  try {
+    const { referendumId } = req.params;
+    const { chain } = req.query;
+    
+    // Validate chain parameter
+    if (!chain) {
+      return res.status(400).json({
+        success: false,
+        error: "Chain parameter is required"
+      });
+    }
+    
+    // Check if referendum exists using post_id and chain
+    const referendum = await db.get(
+      "SELECT id, title FROM referendums WHERE post_id = ? AND chain = ?",
+      [referendumId, chain]
+    );
+    
+    if (!referendum) {
+      return res.status(404).json({
+        success: false,
+        error: `Referendum ${referendumId} not found on ${chain} network`
+      });
+    }
+    
+    // Get comments from database
+    const comments = await db.all(`
+      SELECT rc.*
+      FROM referendum_comments rc
+      WHERE rc.referendum_id = ?
+      ORDER BY rc.created_at ASC
+    `, [referendum.id]);
+    
+    // Get team members from multisig service for member names
+    const teamMembers = await multisigService.getCachedTeamMembers();
+    
+    // Enrich comments with member information using flexible address matching
+    const enrichedComments = comments.map(comment => {
+      const member = multisigService.findMemberByAddress(teamMembers, comment.team_member_id, chain as "Polkadot" | "Kusama");
+      return {
+        id: comment.id,
+        content: comment.content,
+        user_address: comment.team_member_id,
+        user_name: member?.team_member_name || comment.team_member_id,
+        created_at: comment.created_at,
+        updated_at: comment.updated_at
+      };
+    });
+    
+    logger.info({ referendumId, chain, commentCount: enrichedComments.length }, "Retrieved comments for referendum");
+    
+    res.json({
+      success: true,
+      comments: enrichedComments
+    });
+    
+  } catch (error) {
+    logger.error({ error, referendumId: req.params.referendumId }, "Error fetching comments");
+    res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
+
+/**
+ * POST /dao/referendum/:referendumId/comments
+ * Add a comment to a specific referendum
+ */
+router.post("/referendum/:referendumId/comments", requireTeamMember, async (req: Request, res: Response) => {
+  try {
+    const { referendumId } = req.params;
+    const { chain, content } = req.body;
+    
+    // Validate parameters
+    if (!chain) {
+      return res.status(400).json({
+        success: false,
+        error: "Chain parameter is required"
+      });
+    }
+    
+    if (!content || !content.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: "Comment content is required"
+      });
+    }
+    
+    if (!req.user?.address) {
+      return res.status(400).json({
+        success: false,
+        error: "User wallet address not found"
+      });
+    }
+    
+    // Check if referendum exists using post_id and chain
+    const referendum = await db.get(
+      "SELECT id, title FROM referendums WHERE post_id = ? AND chain = ?",
+      [referendumId, chain]
+    );
+    
+    if (!referendum) {
+      return res.status(404).json({
+        success: false,
+        error: `Referendum ${referendumId} not found on ${chain} network`
+      });
+    }
+    
+    // Insert comment into database
+    const result = await db.run(
+      "INSERT INTO referendum_comments (referendum_id, team_member_id, content) VALUES (?, ?, ?)",
+      [referendum.id, req.user.address, content.trim()]
+    );
+    
+    logger.info({ 
+      walletAddress: req.user.address, 
+      referendumId, 
+      chain,
+      commentId: result.lastID,
+      contentLength: content.length 
+    }, "Comment added to referendum");
+    
+    res.status(201).json({
+      success: true,
+      message: "Comment added successfully",
+      comment: {
+        id: result.lastID,
+        content: content.trim(),
+        user_address: req.user.address,
+        created_at: new Date().toISOString()
+      }
+    });
+    
+  } catch (error) {
+    logger.error({ error, referendumId: req.params.referendumId }, "Error adding comment");
     res.status(500).json({
       success: false,
       error: "Internal server error"
@@ -310,6 +690,74 @@ router.delete("/referendum/:referendumId/action", requireTeamMember, async (req:
     
   } catch (error) {
     logger.error({ error, referendumId: req.params.referendumId }, "Error removing user governance action from referendum");
+    res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
+
+/**
+ * DELETE /dao/comments/:commentId
+ * Delete a specific comment (only by the author)
+ */
+router.delete("/comments/:commentId", requireTeamMember, async (req: Request, res: Response) => {
+  try {
+    const { commentId } = req.params;
+    
+    if (!req.user?.address) {
+      return res.status(400).json({
+        success: false,
+        error: "User wallet address not found"
+      });
+    }
+    
+    // Check if comment exists and belongs to the current user
+    const comment = await db.get(
+      "SELECT id, team_member_id FROM referendum_comments WHERE id = ?",
+      [commentId]
+    );
+    
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        error: "Comment not found"
+      });
+    }
+    
+    // Verify the comment belongs to the current user
+    if (comment.team_member_id !== req.user.address) {
+      return res.status(403).json({
+        success: false,
+        error: "You can only delete your own comments"
+      });
+    }
+    
+    // Delete the comment
+    const result = await db.run(
+      "DELETE FROM referendum_comments WHERE id = ?",
+      [commentId]
+    );
+    
+    if (result.changes === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Comment not found or already deleted"
+      });
+    }
+    
+    logger.info({ 
+      walletAddress: req.user.address, 
+      commentId 
+    }, "Comment deleted successfully");
+    
+    res.json({
+      success: true,
+      message: "Comment deleted successfully"
+    });
+    
+  } catch (error) {
+    logger.error({ error, commentId: req.params.commentId }, "Error deleting comment");
     res.status(500).json({
       success: false,
       error: "Internal server error"

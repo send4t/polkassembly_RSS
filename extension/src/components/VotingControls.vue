@@ -11,7 +11,6 @@
         >
           <span class="status-icon">{{ statusIcon }}</span>
           <span class="status-text">{{ status }}</span>
-          <span v-if="editable" class="edit-icon">✏️</span>
         </div>
       </div>
     </div>
@@ -21,8 +20,7 @@
         id="voting-tool-assign"
         class="control-btn assign-btn"
         @click="handleAssignToMe"
-        :disabled="!isAuthenticated"
-        :title="props.assignedTo ? `Assigned to: ${props.assignedTo}` : 'Assign this proposal to yourself'"
+        :title="assignButtonTooltip"
       >
         <span class="btn-text">{{ assignButtonText }}</span>
       </button>
@@ -31,9 +29,18 @@
         id="voting-tool-change-vote"
         class="control-btn vote-btn"
         @click="handleChangeVote"
-        :disabled="!isAuthenticated"
+        :title="voteButtonTooltip"
       >
         <span class="btn-text">{{ suggestedVote || 'No Suggested Vote' }}</span>
+      </button>
+
+      <button 
+        id="voting-tool-team-actions"
+        class="control-btn team-btn"
+        @click="handleTeamActions"
+        :title="authStore.state.isAuthenticated ? 'Open team collaboration panel' : 'Click to connect wallet for team actions'"
+      >
+        <span class="btn-text">Team Actions</span>
       </button>
     </div>
 
@@ -56,18 +63,45 @@
     <VoteChangeModal 
       :show="showVoteModal"
       :proposal-id="proposalId"
+      :current-vote="suggestedVote"
+      :current-reason="reasonForVote"
       @close="closeVoteModal"
       @save="saveVoteChange"
+    />
+
+    <!-- Team Actions Panel -->
+    <div v-if="showTeamPanel" class="team-panel-overlay" @click="closeTeamPanel">
+      <div class="team-panel-wrapper" @click.stop>
+        <TeamActionsPanel 
+          :proposal-id="proposalId"
+          :chain="chain"
+          @close="closeTeamPanel"
+          @updated="handleTeamUpdate"
+        />
+      </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <ConfirmModal
+      :show="showConfirmModal"
+      :title="confirmModalData.title"
+      :message="confirmModalData.message"
+      type="warning"
+      @confirm="confirmModalData.onConfirm(); showConfirmModal = false"
+      @cancel="showConfirmModal = false"
     />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { InternalStatus, SuggestedVote } from '../types'
+import type { InternalStatus, SuggestedVote, Chain, TeamMember } from '../types'
+import { authStore } from '../stores/authStore'
 import StatusChangeModal from './StatusChangeModal.vue'
 import AssignModal from './AssignModal.vue'
 import VoteChangeModal from './VoteChangeModal.vue'
+import TeamActionsPanel from './TeamActionsPanel.vue'
+import ConfirmModal from './ConfirmModal.vue'
 
 interface VotingControlsProps {
   status: InternalStatus
@@ -75,7 +109,10 @@ interface VotingControlsProps {
   editable?: boolean
   isAuthenticated?: boolean
   suggestedVote?: SuggestedVote
+  reasonForVote?: string
   assignedTo?: string | null
+  teamMembers?: TeamMember[]
+  chain: Chain
 }
 
 const props = defineProps<VotingControlsProps>()
@@ -84,40 +121,191 @@ const props = defineProps<VotingControlsProps>()
 const showStatusModal = ref(false)
 const showAssignModal = ref(false)
 const showVoteModal = ref(false)
+const showTeamPanel = ref(false)
+const showConfirmModal = ref(false)
+const confirmModalData = ref({
+  title: '',
+  message: '',
+  onConfirm: () => {}
+})
 
 /**
  * Format wallet address to shortened display format (e.g., "1xf2..355ee")
  * @param address - Full wallet address
- * @returns Shortened address format
+ * @param forceShorten - Whether to force shortening even if there's space
+ * @returns Shortened or full address format
  */
-const formatAddress = (address: string): string => {
+const formatAddress = (address: string, forceShorten: boolean = true): string => {
   if (!address) return ''
-  if (address.length <= 10) return address
+  if (!forceShorten || address.length <= 10) return address
   return `${address.substring(0, 4)}..${address.substring(address.length - 5)}`
 }
 
 /**
+ * Normalize address for comparison by removing whitespace and converting to lowercase
+ * This helps with basic address format differences
+ * @param address - Wallet address to normalize
+ * @returns Normalized address string
+ */
+const normalizeAddress = (address: string): string => {
+  if (!address) return ''
+  return address.trim().toLowerCase()
+}
+
+/**
+ * Check if two addresses are the same, accounting for SS58 format differences
+ * Uses the team members list to find matches by checking if both addresses 
+ * correspond to the same team member
+ * @param addr1 - First address (usually from API)
+ * @param addr2 - Second address (usually from wallet)
+ * @returns True if addresses match
+ */
+const addressesMatch = (addr1?: string | null, addr2?: string | null): boolean => {
+  if (!addr1 || !addr2) {
+    return false
+  }
+  
+  // First try simple string comparison
+  if (normalizeAddress(addr1) === normalizeAddress(addr2)) {
+    return true
+  }
+  
+  // If we have team members, use them to check for SS58 format matches
+  if (props.teamMembers && props.teamMembers.length > 0) {
+    // Find team member by first address
+    const member1 = props.teamMembers.find(m => normalizeAddress(m.address) === normalizeAddress(addr1))
+    // Find team member by second address  
+    const member2 = props.teamMembers.find(m => normalizeAddress(m.address) === normalizeAddress(addr2))
+    
+    // If both addresses correspond to the same team member, they match
+    if (member1 && member2 && member1.address === member2.address) {
+      return true
+    }
+    
+    // Handle SS58 format differences - if stored address matches a team member
+    // but wallet address doesn't, they might still be the same person
+    // This requires backend address conversion to resolve properly
+    if (member1 && !member2) {
+      // For now, return false and let backend handle SS58 conversion
+      return false
+    }
+  }
+  
+  return false
+}
+
+/**
+ * Get team member name by wallet address
+ * @param address - Wallet address to look up
+ * @returns Team member name if found, otherwise null
+ */
+const getTeamMemberName = (address: string): string | null => {
+  if (!props.teamMembers || !address) return null
+  const member = props.teamMembers.find(m => addressesMatch(m.address, address))
+  return member?.name || null
+}
+
+/**
+ * Format assignment display with name if available, fallback to address
+ * Truncates long names for button display, but shows full addresses
+ * @param address - Wallet address
+ * @returns Formatted display string
+ */
+const formatAssignmentDisplay = (address: string): string => {
+  const name = getTeamMemberName(address)
+  if (name) {
+    // Truncate long names for button display
+    if (name.length > 20) {
+      return `${name.substring(0, 17)}...`
+    }
+    return name
+  }
+  // Show shortened address when no name is available for button display
+  return formatAddress(address, true)
+}
+
+/**
  * Computed property for assignment button text
- * Shows "Assign to Me" when unassigned, or "Assigned: [address]" when assigned
+ * Shows "Assign to Me" when unassigned, "Unassign" when current user is assigned, 
+ * or just the assignee name when someone else is assigned
  */
 const assignButtonText = computed(() => {
   if (props.assignedTo) {
-    return `Assigned: ${formatAddress(props.assignedTo)}`
+    const currentUserAddress = authStore.state.user?.address
+    if (addressesMatch(props.assignedTo, currentUserAddress)) {
+      return 'Unassign'
+    } else {
+      return formatAssignmentDisplay(props.assignedTo)
+    }
   }
   return 'Assign to Me'
 })
 
+/**
+ * Computed property for assignment button tooltip
+ */
+const assignButtonTooltip = computed(() => {
+  if (!authStore.state.isAuthenticated) {
+    return 'Click to connect wallet and assign'
+  }
+  
+  if (props.assignedTo) {
+    const currentUserAddress = authStore.state.user?.address
+    if (addressesMatch(props.assignedTo, currentUserAddress)) {
+      return 'Click to unassign yourself from this proposal'
+    } else {
+      const name = getTeamMemberName(props.assignedTo)
+      if (name) {
+        return `Assigned to: ${name} (${formatAddress(props.assignedTo, true)})`
+      } else {
+        return `Assigned to: ${props.assignedTo}`
+      }
+    }
+  }
+  
+  return 'Assign this proposal to yourself'
+})
+
+/**
+ * Computed property to determine if current user can unassign
+ */
+const canUnassign = computed(() => {
+  return authStore.state.isAuthenticated && 
+         props.assignedTo && 
+         addressesMatch(props.assignedTo, authStore.state.user?.address)
+})
+
+/**
+ * Computed property for vote button tooltip that includes reason
+ */
+const voteButtonTooltip = computed(() => {
+  if (!authStore.state.isAuthenticated) {
+    return 'Click to connect wallet and vote'
+  }
+  
+  if (props.suggestedVote) {
+    let tooltip = `Current vote: ${props.suggestedVote}`
+    if (props.reasonForVote) {
+      tooltip += `\nReason: ${props.reasonForVote}`
+    }
+    tooltip += '\n\nClick to change'
+    return tooltip
+  }
+  
+  return 'Change suggested vote'
+})
+
 const statusConfig = {
-  'Not started': { color: '#6c757d', icon: '⚪' },
-  'Considering': { color: '#ffc107', icon: '🤔' },
-  'Ready for approval': { color: '#17a2b8', icon: '📋' },
-  'Waiting for agreement': { color: '#fd7e14', icon: '⏳' },
-  'Ready to vote': { color: '#28a745', icon: '🗳️' },
-  'Reconsidering': { color: '#dc3545', icon: '🔄' },
-  'Voted 👍 Aye 👍': { color: '#198754', icon: '👍' },
-  'Voted 👎 Nay 👎': { color: '#dc3545', icon: '👎' },
-  'Voted ✌️ Abstain ✌️': { color: '#6f42c1', icon: '✌️' },
-  'Not Voted': { color: '#e9ecef', icon: '❌' }
+  'Not started': { color: '#6c757d', icon: '●' },
+  'Considering': { color: '#ffc107', icon: '●' },
+  'Ready for approval': { color: '#17a2b8', icon: '●' },
+  'Waiting for agreement': { color: '#fd7e14', icon: '●' },
+  'Ready to vote': { color: '#28a745', icon: '●' },
+  'Reconsidering': { color: '#dc3545', icon: '●' },
+  'Voted 👍 Aye 👍': { color: '#198754', icon: '●' },
+  'Voted 👎 Nay 👎': { color: '#dc3545', icon: '●' },
+  'Voted ✌️ Abstain ✌️': { color: '#6f42c1', icon: '●' },
+  'Not Voted': { color: '#e9ecef', icon: '●' }
 }
 
 const statusClass = computed(() => {
@@ -161,8 +349,40 @@ const saveStatusChange = async (data: { newStatus: InternalStatus; reason: strin
 }
 
 const handleAssignToMe = () => {
-  if (!props.isAuthenticated) return
-  showAssignModal.value = true
+  if (!authStore.state.isAuthenticated) {
+    showLoginPrompt('Please connect your wallet to assign proposals to yourself.')
+    return
+  }
+  
+  // Check if this is an unassign action
+  if (canUnassign.value) {
+    handleUnassign()
+  } else {
+    showAssignModal.value = true
+  }
+}
+
+const handleUnassign = async () => {
+  confirmModalData.value = {
+    title: 'Unassign Proposal',
+    message: 'Are you sure you want to unassign yourself from this proposal?',
+    onConfirm: () => {
+      try {
+        const unassignData = {
+          proposalId: props.proposalId,
+          action: 'unassign'
+        }
+        
+        console.log('Unassignment requested:', unassignData)
+        
+        // Emit custom event for parent to handle
+        window.dispatchEvent(new CustomEvent('proposalUnassigned', { detail: unassignData }))
+      } catch (error) {
+        console.error('Failed to unassign proposal:', error)
+      }
+    }
+  }
+  showConfirmModal.value = true
 }
 
 const closeAssignModal = () => {
@@ -173,7 +393,8 @@ const confirmAssign = async () => {
   try {
     const assignData = {
       proposalId: props.proposalId,
-      action: 'responsible_person'
+      action: 'responsible_person',
+      autoStatus: 'Considering' // Auto-change status to Considering
     }
     
     console.log('Assignment requested:', assignData)
@@ -188,7 +409,10 @@ const confirmAssign = async () => {
 }
 
 const handleChangeVote = () => {
-  if (!props.isAuthenticated) return
+  if (!authStore.state.isAuthenticated) {
+    showLoginPrompt('Please connect your wallet to change suggested votes.')
+    return
+  }
   showVoteModal.value = true
 }
 
@@ -196,7 +420,7 @@ const closeVoteModal = () => {
   showVoteModal.value = false
 }
 
-const saveVoteChange = async (data: { vote: 'aye' | 'nay' | 'abstain'; reason: string }) => {
+const saveVoteChange = async (data: { vote: '👍 Aye 👍' | '👎 Nay 👎' | '✌️ Abstain ✌️'; reason: string }) => {
   try {
     const voteData = {
       proposalId: props.proposalId,
@@ -204,15 +428,45 @@ const saveVoteChange = async (data: { vote: 'aye' | 'nay' | 'abstain'; reason: s
       reason: data.reason
     }
     
-    console.log('Vote change requested:', voteData)
+    console.log('Suggested vote change requested:', voteData)
     closeVoteModal()
     
     // Emit custom event for parent to handle
-    window.dispatchEvent(new CustomEvent('voteChanged', { detail: voteData }))
+    window.dispatchEvent(new CustomEvent('suggestedVoteChanged', { detail: voteData }))
     
   } catch (error) {
-    console.error('Failed to update vote:', error)
+    console.error('Failed to update suggested vote:', error)
   }
+}
+
+const handleTeamActions = () => {
+  if (!authStore.state.isAuthenticated) {
+    showLoginPrompt('Please connect your wallet to access team collaboration features.')
+    return
+  }
+  showTeamPanel.value = true
+}
+
+const closeTeamPanel = () => {
+  showTeamPanel.value = false
+}
+
+const handleTeamUpdate = () => {
+  // Emit custom event for parent to handle team updates
+  window.dispatchEvent(new CustomEvent('teamDataUpdated', { detail: { proposalId: props.proposalId } }))
+}
+
+// Show login prompt with custom message
+const showLoginPrompt = (message: string) => {
+  confirmModalData.value = {
+    title: 'Connect Wallet',
+    message: `${message}\n\nWould you like to connect your wallet now?`,
+    onConfirm: () => {
+      // Trigger menu opening which will show wallet connect modal
+      window.dispatchEvent(new CustomEvent('requestWalletConnection'))
+    }
+  }
+  showConfirmModal.value = true
 }
 </script>
 
@@ -384,6 +638,38 @@ const saveVoteChange = async (data: { vote: 'aye' | 'nay' | 'abstain'; reason: s
 
 .btn-text {
   font-size: 0.9rem;
+}
+
+/* Team Panel Styles */
+.team-btn {
+  background: linear-gradient(135deg, #17a2b8, #138496);
+  color: white;
+  border: 1px solid #138496;
+}
+
+.team-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #138496, #117a8b);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+}
+
+.team-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.team-panel-wrapper {
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
 }
 
 /* Removed modal styles - now in separate modal components */
