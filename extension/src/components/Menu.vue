@@ -27,28 +27,40 @@
 
     <!-- Menu Items -->
     <div class="menu-items">
-      <div class="menu-item" @click="handleAction('browse-proposals')">
+      <div 
+        class="menu-item" 
+        @click="handleAction('browse-proposals')"
+        title="All proposals with advanced filters"
+      >
         <span class="icon">📋</span>
         <span>Browse Proposals</span>
-        <span class="menu-subtitle">All proposals with advanced filters</span>
       </div>
       
-      <div class="menu-item" @click="handleAction('my-dashboard')">
+      <div 
+        class="menu-item" 
+        @click="handleAction('my-dashboard')"
+        title="My assignments & actions needed"
+      >
         <span class="icon">👤</span>
         <span>My Dashboard</span>
-        <span class="menu-subtitle">My assignments & actions needed</span>
       </div>
       
-      <div class="menu-item" @click="handleAction('team-workflow')">
+      <div 
+        class="menu-item" 
+        @click="handleAction('team-workflow')"
+        title="Team collaboration & approvals"
+      >
         <span class="icon">👥</span>
         <span>Team Workflow</span>
-        <span class="menu-subtitle">Team collaboration & approvals</span>
       </div>
       
-      <div class="menu-item" @click="handleAction('settings-more')">
+      <div 
+        class="menu-item" 
+        @click="handleAction('settings-more')"
+        title="Configuration, history & help"
+      >
         <span class="icon">⚙️</span>
         <span>Settings & More</span>
-        <span class="menu-subtitle">Configuration, history & help</span>
       </div>
     </div>
 
@@ -255,49 +267,38 @@ const handleConfigSaved = () => {
 }
 
 .menu-items {
-  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .menu-item {
-  display: flex;
-  flex-direction: column;
-  padding: 20px 20px;
+  padding: 1rem;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
-  border-bottom: 1px solid #f0f0f0;
-  gap: 4px;
-}
-
-.menu-item:last-child {
-  border-bottom: none;
+  transition: all 0.2s ease;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .menu-item:hover {
-  background-color: #f8f9fa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
 .menu-item .icon {
-  font-size: 20px;
-  margin-right: 12px;
-  width: 24px;
+  font-size: 1.25rem;
+  width: 1.5rem;
   text-align: center;
-  align-self: flex-start;
 }
 
-.menu-item > span:nth-child(2) {
-  font-size: 15px;
-  color: #333;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-}
-
-.menu-subtitle {
-  font-size: 12px;
-  color: #666;
-  font-weight: 400;
-  margin-left: 36px;
-  margin-top: -2px;
+.menu-item span:not(.icon) {
+  font-size: 1rem;
+  color: #2d3748;
+  font-weight: 500;
 }
 
 /* Modal styles */

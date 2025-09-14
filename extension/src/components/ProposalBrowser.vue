@@ -173,7 +173,7 @@
                   <h4 class="card-title">{{ proposal.title }}</h4>
                   <div class="card-meta">
                     <div class="meta-item">
-                      <strong>Assigned:</strong> {{ proposal.assigned_to || 'Unassigned' }}
+                      <strong>Assigned:</strong> {{ getTeamMemberName(proposal.assigned_to) || formatAddress(proposal.assigned_to) || 'Unassigned' }}
                     </div>
                     <div class="meta-item">
                       <strong>Updated:</strong> {{ formatDate(proposal.updated_at || proposal.created_at) }}
@@ -219,6 +219,7 @@ import type { ProposalData, InternalStatus, TimelineStatus, TeamAction } from '.
 import { ApiService } from '../utils/apiService'
 import { authStore } from '../stores/authStore'
 import StatusBadge from './StatusBadge.vue'
+import { findTeamMemberByAddress } from '../utils/teamUtils';
 
 interface Props {
   show: boolean
@@ -324,10 +325,14 @@ const filteredProposals = computed(() => {
       )
     } else {
       filtered = filtered.filter(p => 
-        p.team_actions?.some(action => 
-          action.wallet_address === currentUser && 
-          action.role_type === selectedTeamAction.value
-        )
+        p.team_actions?.some(action => {
+          const actionType = action.role_type?.toLowerCase();
+          const selectedType = selectedTeamAction.value.toLowerCase();
+          const normalizedType = selectedType.replace(' ', '_');
+          
+          return action.wallet_address === currentUser && 
+            (actionType === selectedType || actionType === normalizedType);
+        })
       )
     }
   }
@@ -420,6 +425,18 @@ const assignToMe = async (proposal: ProposalData, event: Event) => {
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString()
 }
+
+const formatAddress = (address: string | undefined) => {
+  if (!address) return '';
+  if (address.length <= 13) return address;
+  return `${address.slice(0, 6)}...${address.slice(-6)}`;
+};
+
+const getTeamMemberName = (address: string | undefined) => {
+  if (!address) return '';
+  const teamMember = findTeamMemberByAddress(address);
+  return teamMember?.name || '';
+};
 
 // Watch for filter changes to reset pagination
 watch([searchQuery, selectedInternalStatus, selectedTimelineStatus, selectedAssignment, selectedTeamAction], () => {
