@@ -1,6 +1,6 @@
 // API Service for OpenGov VotingTool Extension
 
-import type { ProposalData, InternalStatus, SuggestedVote, Chain, TeamAction, ProposalAction, ProposalComment, AgreementSummary, DAOConfig } from '../types';
+import type { ProposalData, InternalStatus, SuggestedVote, Chain, TeamAction, ProposalAction, ProposalComment, AgreementSummary, DAOConfig, TeamMember } from '../types';
 
 export class ApiService {
     private static instance: ApiService;
@@ -11,6 +11,10 @@ export class ApiService {
         // Default to localhost, but this could be configurable
         this.baseUrl = 'http://localhost:3000';
         this.loadToken();
+        console.log('🔧 ApiService initialized:', {
+            baseUrl: this.baseUrl,
+            hasToken: !!this.token
+        });
     }
 
     static getInstance(): ApiService {
@@ -22,6 +26,7 @@ export class ApiService {
 
     private loadToken(): void {
         this.token = localStorage.getItem('opengov-auth-token');
+        console.log('🔑 Loaded token:', this.token ? 'Present' : 'Not found');
     }
 
     // Method to refresh token from localStorage
@@ -70,13 +75,18 @@ export class ApiService {
                     return;
                 }
                 
+                            console.log('📡 Chrome message response:', response);
+                
                 if (response && response.success) {
+                console.log('✅ API call successful, raw response:', response);
+                // Always use the data field from the response
                     resolve(response.data);
                 } else {
                     console.error('❌ API Service: API call failed, response:', response);
                     
                     // Handle 401 unauthorized
                     if (response?.debugInfo?.responseStatus === 401) {
+                    console.warn('⚠️ Unauthorized - clearing token');
                         this.token = null;
                         localStorage.removeItem('opengov-auth-token');
                     }
@@ -87,6 +97,7 @@ export class ApiService {
                         (error as any).details = response.debugInfo.errorResponseBody.details;
                         (error as any).status = response?.debugInfo?.responseStatus;
                     }
+                console.error('❌ Rejecting with error:', error);
                     reject(error);
                 }
             });
@@ -233,6 +244,14 @@ export class ApiService {
                 return { success: false, error: `Unknown action: ${action}` };
             }
             
+            console.log('🔄 Submitting team action:', {
+                postId,
+                chain,
+                action,
+                backendAction,
+                reason
+            });
+            
             const result = await this.request<{ success: boolean; error?: string }>(`/dao/referendum/${postId}/action`, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -242,8 +261,10 @@ export class ApiService {
                 }),
             });
 
+            console.log('✅ Team action result:', result);
             return result;
         } catch (error) {
+            console.error('❌ Failed to submit team action:', error);
             return { success: false, error: error instanceof Error ? error.message : 'Failed to submit team action' };
         }
     }
@@ -324,10 +345,22 @@ export class ApiService {
     // DAO configuration methods
     async getDAOConfig(): Promise<DAOConfig | null> {
         try {
-            const result = await this.request<{ success: boolean; config?: DAOConfig; error?: string }>('/dao/config');
-            return result.config || null;
+            // Use /dao/members endpoint instead of /dao/config
+            const result = await this.request<{ success: boolean; members?: TeamMember[]; error?: string }>('/dao/members');
+            
+            if (result.success && result.members) {
+                const config: DAOConfig = {
+                    team_members: result.members,
+                    required_agreements: 4, // Default value, could be made configurable
+                    name: 'OpenGov Voting Tool' // Add name field
+                };
+                return config;
+            } else {
+                console.error('Failed to get DAO config:', result.error)
+                return null;
+            }
         } catch (error) {
-            console.error('Failed to fetch DAO config:', error);
+            console.error('Error getting DAO config:', error)
             return null;
         }
     }
@@ -348,10 +381,42 @@ export class ApiService {
     // List methods for different views
     async getMyAssignments(): Promise<ProposalData[]> {
         try {
-            const result = await this.request<{ success: boolean; referendums?: ProposalData[]; error?: string }>('/dao/my-assignments');
-            return result.referendums || [];
+            // Check auth token
+            console.log('🔑 Auth check:', {
+                hasToken: !!this.token,
+                headers: this.getHeaders()
+            });
+
+            console.log('🔍 Fetching my assignments...');
+            const result = await this.request<{ success: boolean; referendums: ProposalData[]; error?: string }>('/dao/my-assignments');
+            console.log('📦 Raw assignments response:', result);
+            
+            if (!result.success) {
+                console.warn('⚠️ API returned success: false', result.error);
+                return [];
+            }
+
+            const assignments = result.referendums || [];
+            console.log('✅ Found assignments:', {
+                count: assignments.length,
+                sample: assignments.slice(0, 2).map(p => ({
+                    id: p.post_id,
+                    title: p.title,
+                    assigned_to: p.assigned_to,
+                    hasTeamAssignments: 'team_assignments' in p
+                }))
+            });
+            
+            return assignments;
         } catch (error) {
-            console.error('Failed to fetch assignments:', error);
+            console.error('❌ Failed to fetch assignments:', error);
+            if (error instanceof Error) {
+                console.error('Error details:', {
+                    message: error.message,
+                    details: (error as any).details,
+                    status: (error as any).status
+                });
+            }
             return [];
         }
     }
@@ -368,13 +433,113 @@ export class ApiService {
 
     async getAllProposals(chain?: Chain): Promise<ProposalData[]> {
         try {
+            console.log('🔍 getAllProposals called', { chain, baseUrl: this.baseUrl, hasToken: !!this.token });
             const queryParam = chain ? `?chain=${chain}` : '';
-            const result = await this.request<{ success: boolean; referendums?: ProposalData[]; error?: string }>(`/referendums${queryParam}`);
-            return result.referendums || [];
+            const endpoint = `/referendums${queryParam}`;
+            console.log('📡 Making request to:', endpoint);
+            
+            const result = await this.request<{ success: boolean; referendums: ProposalData[] }>(endpoint);
+            console.log('📦 Raw API result:', result);
+            
+            if (!result.success) {
+                console.warn('⚠️ API returned success: false');
+                return [];
+            }
+
+            // Log full structure of first proposal
+            if (result.referendums.length > 0) {
+                console.log('📝 First proposal structure:', {
+                    proposal: result.referendums[0],
+                    keys: Object.keys(result.referendums[0]),
+                    hasTeamActions: 'team_actions' in result.referendums[0],
+                    teamActionsType: result.referendums[0].team_actions ? typeof result.referendums[0].team_actions : 'undefined'
+                });
+            }
+
+            // Check if team_actions might be under a different key
+            const sampleProposal = result.referendums[0];
+            if (sampleProposal) {
+                console.log('🔍 Looking for team actions in proposal keys:', Object.keys(sampleProposal));
+                // Log any keys that might contain team actions
+                Object.entries(sampleProposal).forEach(([key, value]) => {
+                    if (Array.isArray(value)) {
+                        console.log(`📦 Array found in key "${key}":`, value);
+                    }
+                });
+            }
+
+            // Log raw team actions before mapping
+            const proposalsWithActions = result.referendums.filter(p => {
+                const hasActions = p.team_actions && p.team_actions.length > 0;
+                if (!hasActions && p.team_actions !== undefined) {
+                    console.log(`⚠️ Proposal ${p.post_id} has team_actions but it's empty:`, p.team_actions);
+                }
+                return hasActions;
+            });
+            console.log('👥 Proposals with team actions:', proposalsWithActions.length);
+            console.log('📝 Team actions breakdown:', proposalsWithActions.map(p => ({
+                id: p.post_id,
+                rawActions: p.team_actions
+            })));
+
+            // Map backend action types to frontend types
+            const proposals = result.referendums.map(proposal => {
+                const mappedProposal = {
+                    ...proposal,
+                    team_actions: proposal.team_actions?.map(action => {
+                        const mappedAction = {
+                            ...action,
+                            role_type: this.mapBackendActionToFrontend(action.role_type as string)
+                        };
+                        console.log(`🔄 Mapping action for proposal ${proposal.post_id}:`, {
+                            from: action.role_type,
+                            to: mappedAction.role_type
+                        });
+                        return mappedAction;
+                    })
+                };
+                
+                // Log if proposal has NO WAY actions
+                if (mappedProposal.team_actions?.some(a => a.role_type === 'NO WAY')) {
+                    console.log('🚫 Found NO WAY action in proposal:', {
+                        id: mappedProposal.post_id,
+                        actions: mappedProposal.team_actions
+                    });
+                }
+                
+                return mappedProposal;
+            });
+            
+            return proposals;
         } catch (error) {
-            console.error('Failed to fetch all proposals:', error);
+            console.error('❌ Failed to fetch all proposals:', error);
             return [];
         }
+    }
+
+    private mapBackendActionToFrontend(action: string): TeamAction {
+        console.log('🔄 Mapping action:', action);
+        const mapped = (() => {
+            switch (action.toLowerCase()) {
+                case 'no_way':
+                case 'noway':
+                case 'no way':
+                    return 'NO WAY';
+                case 'to_be_discussed':
+                case 'tobediscussed':
+                case 'to be discussed':
+                    return 'To be discussed';
+                case 'agree':
+                    return 'Agree';
+                case 'recuse':
+                    return 'Recuse';
+                default:
+                    console.warn('⚠️ Unknown team action type:', action);
+                    return 'To be discussed';
+            }
+        })();
+        console.log(`🔄 Mapped ${action} -> ${mapped}`);
+        return mapped;
     }
 
     async getUnassignedProposals(): Promise<ProposalData[]> {
@@ -433,8 +598,8 @@ export class ApiService {
         }
     }
 
-    // Helper method to trigger referendum refresh
-    private async refreshReferenda(): Promise<void> {
+    // Method to trigger referendum refresh from Polkassembly
+    async refreshReferenda(): Promise<void> {
         try {
             await this.request(`/admin/refresh-referendas?limit=50`, {
                 method: 'GET'
