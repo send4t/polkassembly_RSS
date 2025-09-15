@@ -215,11 +215,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import type { ProposalData, InternalStatus, TimelineStatus, TeamAction } from '../types'
-import { ApiService } from '../utils/apiService'
-import { authStore } from '../stores/authStore'
-import StatusBadge from './StatusBadge.vue'
-import { findTeamMemberByAddress } from '../utils/teamUtils';
+import type { ProposalData, InternalStatus, TimelineStatus, TeamAction } from '../../types'
+import { ApiService } from '../../utils/apiService'
+import { authStore } from '../../stores/authStore'
+import StatusBadge from '../StatusBadge.vue'
+import { findTeamMemberByAddress, formatAddress, getTeamMemberName, formatDate } from '../../utils/teamUtils';
 
 interface Props {
   show: boolean
@@ -422,21 +422,6 @@ const assignToMe = async (proposal: ProposalData, event: Event) => {
   }
 }
 
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString()
-}
-
-const formatAddress = (address: string | undefined) => {
-  if (!address) return '';
-  if (address.length <= 13) return address;
-  return `${address.slice(0, 6)}...${address.slice(-6)}`;
-};
-
-const getTeamMemberName = (address: string | undefined) => {
-  if (!address) return '';
-  const teamMember = findTeamMemberByAddress(address);
-  return teamMember?.name || '';
-};
 
 // Watch for filter changes to reset pagination
 watch([searchQuery, selectedInternalStatus, selectedTimelineStatus, selectedAssignment, selectedTeamAction], () => {

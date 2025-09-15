@@ -6,10 +6,22 @@ export interface TeamMember {
   address: string;
 }
 
-const formatAddress = (address: string): string => {
+export const formatAddress = (address: string | undefined, options?: {
+  startChars?: number;
+  endChars?: number;
+  forceShorten?: boolean;
+}): string => {
   if (!address) return '';
-  if (address.length <= 13) return address;
-  return `${address.slice(0, 6)}...${address.slice(-6)}`;
+  
+  const {
+    startChars = 6,
+    endChars = 4,
+    forceShorten = true
+  } = options || {};
+  
+  if (!forceShorten && address.length <= 13) return address;
+  
+  return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
 };
 
 export const findTeamMemberByAddress = (address: string): TeamMember | undefined => {
@@ -34,7 +46,8 @@ export const findTeamMemberByAddress = (address: string): TeamMember | undefined
         if (member) break;
       }
     } catch (e) {
-      console.warn('Error converting address:', e);
+      // Silent error handling for address conversion issues
+      // Address conversion errors are not critical to the application flow
     }
   }
   
@@ -45,4 +58,9 @@ export const getTeamMemberName = (address: string | undefined): string => {
   if (!address) return 'Unassigned';
   const member = findTeamMemberByAddress(address);
   return member?.name || formatAddress(address);
+};
+
+export const formatDate = (dateString: string | undefined): string => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString();
 }; 
