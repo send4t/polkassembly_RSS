@@ -1,6 +1,9 @@
 # Multi-stage Dockerfile for Polkadot Voting Tool
 # Stage 1: Build stage
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
+
+# Install build dependencies for native modules (sqlite3)
+RUN apk add --no-cache python3 make g++
 
 # Set working directory
 WORKDIR /app
@@ -9,43 +12,35 @@ WORKDIR /app
 COPY backend/package*.json ./
 
 # Install dependencies (including devDependencies for building)
-RUN npm ci
+RUN npm install
 
 # Copy TypeScript source code
 COPY backend/src ./src
 COPY backend/tsconfig.json ./
-COPY backend/jest.config.js ./
 
 # Build TypeScript to JavaScript
 RUN npm run build
 
 # Stage 2: Production stage
-FROM node:18-alpine AS production
+FROM node:20-alpine AS production
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+# Install dumb-init for proper signal handling and sqlite3 runtime dependencies
+RUN apk add --no-cache dumb-init sqlite
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY backend/package*.json ./
+# Create data directory for SQLite database
+RUN mkdir -p /app/data
 
-# Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy built application from builder stage
+# Copy built application and node_modules from builder stage
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
 
 # Copy other necessary files
 COPY backend/public ./public
-
-# Change ownership to nodejs user
-RUN chown -R nodejs:nodejs /app
-USER nodejs
+COPY backend/database ./database
 
 # Expose port
 EXPOSE 3000
