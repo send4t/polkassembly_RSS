@@ -352,7 +352,7 @@ export class ApiService {
                 const config: DAOConfig = {
                     team_members: result.members,
                     required_agreements: 4, // Default value, could be made configurable
-                    name: 'OpenGov Voting Tool' // Add name field
+                    name: 'OpenGov Voting Tool' // Simple static name
                 };
                 return config;
             } else {
@@ -377,6 +377,36 @@ export class ApiService {
             return { success: false, error: error instanceof Error ? error.message : 'Failed to update DAO config' };
         }
     }
+
+    async triggerSync(type: 'normal' | 'deep' = 'normal'): Promise<{ success: boolean; message?: string; error?: string }> {
+        try {
+            const result = await this.request<{ 
+                success: boolean; 
+                message?: string; 
+                type?: string;
+                limit?: number;
+                timestamp?: string;
+                status?: string;
+                error?: string 
+            }>('/dao/sync', {
+                method: 'POST',
+                body: JSON.stringify({ type })
+            });
+
+            return {
+                success: result.success,
+                message: result.message,
+                error: result.error
+            };
+        } catch (error) {
+            return { 
+                success: false, 
+                error: error instanceof Error ? error.message : 'Failed to trigger sync' 
+            };
+        }
+    }
+
+
 
     // List methods for different views
     async getMyAssignments(): Promise<ProposalData[]> {
