@@ -215,7 +215,7 @@ export class ApiService {
 
     async updateSuggestedVote(postId: number, chain: Chain, vote: SuggestedVote, reason?: string): Promise<{ success: boolean; error?: string }> {
         try {
-            const result = await this.request<any>(`/referendums/${postId}/${chain}`, {
+            const result = await this.request<{ success: boolean; error?: string }>(`/referendums/${postId}/${chain}`, {
                 method: 'PUT',
                 body: JSON.stringify({
                     suggested_vote: vote,
@@ -223,14 +223,13 @@ export class ApiService {
                 }),
             });
 
-            // The endpoint returns the updated referendum object, not { success: boolean }
-            // If we get a referendum object back, it means success
-            if (result && result.id) {
-                return { success: true };
-            } else {
-                return { success: false, error: 'No referendum data returned' };
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to update suggested vote');
             }
+
+            return { success: true };
         } catch (error) {
+            console.error('Failed to update suggested vote:', error);
             return { success: false, error: error instanceof Error ? error.message : 'Failed to update suggested vote' };
         }
     }
@@ -292,18 +291,58 @@ export class ApiService {
         }
     }
 
-    async deleteTeamAction(postId: number, chain: Chain): Promise<{ success: boolean; error?: string }> {
+    async deleteTeamAction(postId: number, chain: Chain, action: TeamAction): Promise<{ success: boolean; error?: string }> {
         try {
+            // Map frontend action names to backend enum values
+            const actionMap: Record<TeamAction, string> = {
+                'Agree': 'agree',
+                'To be discussed': 'to_be_discussed',
+                'NO WAY': 'no_way',
+                'Recuse': 'recuse'
+            };
+            
+            const backendAction = actionMap[action];
+            if (!backendAction) {
+                return { success: false, error: `Unknown action: ${action}` };
+            }
+
             const result = await this.request<{ success: boolean; error?: string }>(`/dao/referendum/${postId}/action`, {
                 method: 'DELETE',
                 body: JSON.stringify({
-                    chain
+                    chain,
+                    action: backendAction
                 }),
             });
 
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to delete team action');
+            }
+
             return result;
         } catch (error) {
+            console.error('❌ Failed to delete team action:', error);
             return { success: false, error: error instanceof Error ? error.message : 'Failed to delete team action' };
+        }
+    }
+
+    async unassignFromReferendum(postId: number, chain: Chain, unassignNote?: string): Promise<{ success: boolean; error?: string }> {
+        try {
+            const result = await this.request<{ success: boolean; error?: string }>(`/dao/referendum/${postId}/unassign`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    chain,
+                    unassignNote
+                }),
+            });
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to unassign from referendum');
+            }
+
+            return result;
+        } catch (error) {
+            console.error('❌ Failed to unassign from referendum:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Failed to unassign from referendum' };
         }
     }
 

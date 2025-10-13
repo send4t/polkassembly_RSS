@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db } from "../database/connection";
+import { VotingDecision } from "../database/models/votingDecision";
 import { requireTeamMember, authenticateToken } from "../middleware/auth";
 import { ReferendumAction } from "../types/auth";
 import { InternalStatus } from "../types/properties";
@@ -716,10 +717,106 @@ router.post("/referendum/:referendumId/comments", requireTeamMember, async (req:
  * DELETE /dao/referendum/:referendumId/action
  * Remove current user's governance action from a referendum
  */
+/**
+ * DELETE /dao/referendum/:referendumId/action
+ * Remove a specific team action (Agree, NoWay, Recuse, Discuss) from a referendum
+ */
 router.delete("/referendum/:referendumId/action", requireTeamMember, async (req: Request, res: Response) => {
   try {
     const { referendumId } = req.params;
-    const { chain } = req.body;
+    const { chain, action } = req.body;
+    
+    if (!req.user?.address) {
+      return res.status(400).json({
+        success: false,
+        error: "User wallet address not found"
+      });
+    }
+    
+    // Validate chain parameter
+    if (!chain) {
+      return res.status(400).json({
+        success: false,
+        error: "Chain parameter is required"
+      });
+    }
+
+    // Validate action parameter
+    if (!action || ![ReferendumAction.AGREE, ReferendumAction.NO_WAY, ReferendumAction.RECUSE, ReferendumAction.TO_BE_DISCUSSED].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        error: "Valid action type is required"
+      });
+    }
+    
+    // Get the internal referendum ID first
+    const referendum = await db.get(
+      "SELECT id FROM referendums WHERE post_id = ? AND chain = ?",
+      [referendumId, chain]
+    );
+    
+    if (!referendum) {
+      return res.status(404).json({
+        success: false,
+        error: `Referendum ${referendumId} not found on ${chain} network`
+      });
+    }
+    
+    try {
+      // Remove specific team action
+      const result = await db.run(
+        "DELETE FROM referendum_team_roles WHERE referendum_id = ? AND team_member_id = ? AND role_type = ?",
+        [referendum.id, req.user.address, action]
+      );
+
+      if (result.changes === 0) {
+        return res.status(404).json({
+          success: false,
+          error: `No ${action} action found for this user and referendum`
+        });
+      }
+
+      logger.info({ 
+        walletAddress: req.user.address, 
+        referendumId,
+        action
+      }, "Team action removed successfully");
+      
+      return res.json({
+        success: true,
+        message: "Team action removed successfully"
+      });
+    } catch (error) {
+      logger.error({ 
+        error: formatError(error), 
+        referendumId,
+        chain,
+        action,
+        walletAddress: req.user.address
+      }, "Error removing team action from referendum");
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Internal server error"
+      });
+    }
+  } catch (error) {
+    logger.error({ error: formatError(error) }, "Error in delete action endpoint");
+    res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
+
+/**
+ * POST /dao/referendum/:referendumId/unassign
+ * Unassign the responsible person from a referendum and reset its state
+ */
+router.post("/referendum/:referendumId/unassign", requireTeamMember, async (req: Request, res: Response) => {
+  try {
+    const { referendumId } = req.params;
+    const { chain, unassignNote } = req.body;
     
     if (!req.user?.address) {
       return res.status(400).json({
@@ -749,36 +846,139 @@ router.delete("/referendum/:referendumId/action", requireTeamMember, async (req:
       });
     }
     
-    // Remove user's action for this referendum
-    // Use wallet address directly as team_member_id and the internal referendum.id
-    const result = await db.run(
-      "DELETE FROM referendum_team_roles WHERE referendum_id = ? AND team_member_id = ?",
-      [referendum.id, req.user.address]
-    );
-    
-    if (result.changes === 0) {
-      return res.status(404).json({
+    try {
+      // Check if user is the responsible person
+      const responsibleRole = await db.get(
+        "SELECT id FROM referendum_team_roles WHERE referendum_id = ? AND team_member_id = ? AND role_type = ?",
+        [referendum.id, req.user.address, ReferendumAction.RESPONSIBLE_PERSON]
+      );
+
+      if (!responsibleRole) {
+        return res.status(403).json({
+          success: false,
+          error: "Only the responsible person can unassign themselves"
+        });
+      }
+
+      // Start a transaction to handle all changes atomically
+      await db.run('BEGIN TRANSACTION');
+      
+      try {
+        // Get current voting decision before removing role
+        const votingDecision = await VotingDecision.getByReferendumId(referendum.id);
+        const previousVote = votingDecision?.suggested_vote;
+        
+        // Remove responsible person role AND any team actions (except NO WAY)
+        await db.run(
+          "DELETE FROM referendum_team_roles WHERE referendum_id = ? AND team_member_id = ? AND role_type != ?",
+          [referendum.id, req.user.address, ReferendumAction.NO_WAY]
+        );
+        
+        // Always reset suggested vote
+        await VotingDecision.upsert(referendum.id, {
+          suggested_vote: undefined,
+          referendum_id: referendum.id
+        });
+        
+        // Reset internal status and clear reason for vote
+        await db.run(
+          "UPDATE referendums SET internal_status = ?, updated_at = datetime('now'), reason_for_vote = NULL WHERE id = ?",
+          [InternalStatus.NotStarted, referendum.id]
+        );
+        
+        // Always add an unassign message, optionally with note and previous vote
+        const noteLines = ['[UNASSIGN MESSAGE]'];
+        if (previousVote) {
+          noteLines.push(`Previous vote: ${previousVote}`);
+        }
+        if (unassignNote?.trim()) {
+          noteLines.push(`Note: ${unassignNote.trim()}`);
+        }
+        
+        await db.run(
+          "INSERT INTO referendum_comments (referendum_id, team_member_id, content) VALUES (?, ?, ?)",
+          [referendum.id, req.user.address, noteLines.join('\n')]
+        );
+      
+        await db.run('COMMIT');
+        
+        logger.info({ 
+          walletAddress: req.user.address, 
+          referendumId,
+          hadNote: !!unassignNote,
+          previousVote
+        }, "Responsible person unassigned and values reset");
+        
+        return res.json({
+          success: true,
+          message: "Unassigned successfully"
+        });
+      } catch (transactionError) {
+        await db.run('ROLLBACK');
+        throw transactionError;
+      }
+    } catch (error) {
+      logger.error({ 
+        error: formatError(error), 
+        referendumId,
+        chain,
+        walletAddress: req.user.address
+      }, "Error unassigning responsible person");
+      
+      res.status(500).json({
         success: false,
-        error: "No governance action found for this user and referendum"
+        error: error instanceof Error ? error.message : "Internal server error"
       });
     }
-    
-    logger.info({ 
-      walletAddress: req.user.address, 
-      referendumId 
-    }, "User governance action removed from referendum");
-    
-    res.json({
-      success: true,
-      message: "Governance action removed successfully"
-    });
-    
   } catch (error) {
-    logger.error({ error: formatError(error), referendumId: req.params.referendumId }, "Error removing user governance action from referendum");
+    logger.error({ error: formatError(error) }, "Error in unassign endpoint");
     res.status(500).json({
       success: false,
       error: "Internal server error"
     });
+  }
+});
+
+/**
+ * DELETE /dao/comments/:commentId
+ * Delete a specific comment (only by the author)
+ */
+router.delete("/comments/:commentId", requireTeamMember, async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.address) {
+      return res.status(400).json({
+        success: false,
+        error: "User wallet address not found"
+      });
+    }
+    // Check if comment exists and belongs to the current user
+    const comment = await db.get(
+      "SELECT id, team_member_id FROM referendum_comments WHERE id = ?",
+      [req.params.commentId]
+    );
+    
+  } catch (error) {
+    logger.error({ 
+      error: formatError(error), 
+      referendumId: req.params.referendumId,
+      chain: req.body.chain,
+      walletAddress: req.user?.address,
+      body: req.body,
+      step: 'outer'
+    }, "Error removing user governance action from referendum");
+    
+    // Check if it's a transaction error that was re-thrown
+    if (error instanceof Error && error.message.includes('SQLITE_CONSTRAINT')) {
+      res.status(409).json({
+        success: false,
+        error: "Database constraint violation. Please try again."
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Internal server error"
+      });
+    }
   }
 });
 
@@ -895,57 +1095,178 @@ router.get("/workflow", authenticateToken, async (req: Request, res: Response) =
 
     // Get proposals waiting for agreement
     const needsAgreement = await db.all(`
+      WITH member_actions AS (
+        SELECT 
+          r.id as referendum_id,
+          tm.wallet_address as member_address,
+          MAX(CASE 
+            WHEN rtr.role_type = ? THEN 1
+            WHEN rtr.role_type = ? THEN 2
+            WHEN rtr.role_type = ? THEN 3
+            WHEN rtr.role_type = ? THEN 4
+            ELSE 0
+          END) as action_priority
+        FROM referendums r
+        CROSS JOIN (SELECT DISTINCT wallet_address FROM team_members) tm
+        LEFT JOIN referendum_team_roles rtr ON r.id = rtr.referendum_id 
+          AND (rtr.team_member_id = tm.wallet_address 
+            OR EXISTS (
+              SELECT 1 FROM team_members tm2 
+              WHERE tm2.wallet_address = tm.wallet_address 
+              AND rtr.team_member_id = tm2.wallet_address
+            )
+          )
+        WHERE (r.internal_status = ? OR r.internal_status = ?)
+        GROUP BY r.id, tm.wallet_address
+      )
       SELECT 
         r.*,
-        COUNT(DISTINCT CASE WHEN rtr.role_type = ? THEN rtr.team_member_id END) as agreement_count,
+        COUNT(CASE WHEN ma.action_priority = 1 THEN 1 END) as agreement_count,
         ? as required_agreements
       FROM referendums r
-      LEFT JOIN referendum_team_roles rtr ON r.id = rtr.referendum_id
+      LEFT JOIN member_actions ma ON r.id = ma.referendum_id
       WHERE (r.internal_status = ? OR r.internal_status = ?)
         AND NOT EXISTS (
-          SELECT 1 FROM referendum_team_roles rtr2 
-          WHERE rtr2.referendum_id = r.id 
-          AND rtr2.role_type = ?
+          SELECT 1 
+          FROM member_actions ma2 
+          WHERE ma2.referendum_id = r.id 
+          AND ma2.action_priority = 2
         )
       GROUP BY r.id
       HAVING agreement_count < ?
-    `, [ReferendumAction.AGREE, totalTeamMembers, InternalStatus.WaitingForAgreement, InternalStatus.ReadyForApproval, ReferendumAction.NO_WAY, totalTeamMembers]);
+    `, [
+      ReferendumAction.AGREE,       // Priority 1
+      ReferendumAction.NO_WAY,      // Priority 2
+      ReferendumAction.RECUSE,      // Priority 3
+      ReferendumAction.TO_BE_DISCUSSED, // Priority 4
+      InternalStatus.WaitingForAgreement,
+      InternalStatus.ReadyForApproval,
+      totalTeamMembers,
+      InternalStatus.WaitingForAgreement,
+      InternalStatus.ReadyForApproval,
+      totalTeamMembers
+    ]);
 
     // Get proposals ready to vote
     const readyToVote = await db.all(`
-      SELECT r.*
+      WITH member_actions AS (
+        SELECT 
+          r.id as referendum_id,
+          tm.wallet_address as member_address,
+          MAX(CASE 
+            WHEN rtr.role_type = ? THEN 1
+            WHEN rtr.role_type = ? THEN 2
+            ELSE 0
+          END) as action_priority
+        FROM referendums r
+        CROSS JOIN (SELECT DISTINCT wallet_address FROM team_members) tm
+        LEFT JOIN referendum_team_roles rtr ON r.id = rtr.referendum_id 
+          AND (rtr.team_member_id = tm.wallet_address 
+            OR EXISTS (
+              SELECT 1 FROM team_members tm2 
+              WHERE tm2.wallet_address = tm.wallet_address 
+              AND rtr.team_member_id = tm2.wallet_address
+            )
+          )
+        WHERE r.internal_status = ?
+        GROUP BY r.id, tm.wallet_address
+      )
+      SELECT DISTINCT r.*
       FROM referendums r
+      LEFT JOIN member_actions ma ON r.id = ma.referendum_id
       WHERE r.internal_status = ?
         AND NOT EXISTS (
-          SELECT 1 FROM referendum_team_roles rtr2 
-          WHERE rtr2.referendum_id = r.id 
-          AND rtr2.role_type = ?
+          SELECT 1 
+          FROM member_actions ma2 
+          WHERE ma2.referendum_id = r.id 
+          AND ma2.action_priority = 2
         )
-    `, [InternalStatus.ReadyToVote, ReferendumAction.NO_WAY]);
+    `, [
+      ReferendumAction.AGREE,
+      ReferendumAction.NO_WAY,
+      InternalStatus.ReadyToVote,
+      InternalStatus.ReadyToVote
+    ]);
 
     // Get proposals for discussion
     const forDiscussion = await db.all(`
-      SELECT r.*
+      WITH member_actions AS (
+        SELECT 
+          r.id as referendum_id,
+          tm.wallet_address as member_address,
+          MAX(CASE 
+            WHEN rtr.role_type = ? THEN 1
+            WHEN rtr.role_type = ? THEN 2
+            WHEN rtr.role_type = ? THEN 3
+            ELSE 0
+          END) as action_priority
+        FROM referendums r
+        CROSS JOIN (SELECT DISTINCT wallet_address FROM team_members) tm
+        LEFT JOIN referendum_team_roles rtr ON r.id = rtr.referendum_id 
+          AND (rtr.team_member_id = tm.wallet_address 
+            OR EXISTS (
+              SELECT 1 FROM team_members tm2 
+              WHERE tm2.wallet_address = tm.wallet_address 
+              AND rtr.team_member_id = tm2.wallet_address
+            )
+          )
+        GROUP BY r.id, tm.wallet_address
+      )
+      SELECT DISTINCT r.*
       FROM referendums r
-      INNER JOIN referendum_team_roles rtr ON r.id = rtr.referendum_id
-      WHERE rtr.role_type = ?
-        AND NOT EXISTS (
-          SELECT 1 FROM referendum_team_roles rtr2 
-          WHERE rtr2.referendum_id = r.id 
-          AND rtr2.role_type = ?
-        )
-      GROUP BY r.id
-    `, [ReferendumAction.TO_BE_DISCUSSED, ReferendumAction.NO_WAY]);
+      INNER JOIN member_actions ma ON r.id = ma.referendum_id
+      WHERE EXISTS (
+        SELECT 1 
+        FROM member_actions ma2 
+        WHERE ma2.referendum_id = r.id 
+        AND ma2.action_priority = 3
+      )
+      AND NOT EXISTS (
+        SELECT 1 
+        FROM member_actions ma3 
+        WHERE ma3.referendum_id = r.id 
+        AND ma3.action_priority = 2
+      )
+    `, [
+      ReferendumAction.AGREE,
+      ReferendumAction.NO_WAY,
+      ReferendumAction.TO_BE_DISCUSSED
+    ]);
 
     // Get NO WAYed proposals
     const vetoedProposals = await db.all(`
+      WITH member_actions AS (
+        SELECT 
+          r.id as referendum_id,
+          tm.wallet_address as member_address,
+          rtr.reason as action_reason,
+          rtr.created_at as action_date,
+          MAX(CASE 
+            WHEN rtr.role_type = ? THEN 1
+            ELSE 0
+          END) as action_priority
+        FROM referendums r
+        CROSS JOIN (SELECT DISTINCT wallet_address, team_member_name FROM team_members) tm
+        LEFT JOIN referendum_team_roles rtr ON r.id = rtr.referendum_id 
+          AND (rtr.team_member_id = tm.wallet_address 
+            OR EXISTS (
+              SELECT 1 FROM team_members tm2 
+              WHERE tm2.wallet_address = tm.wallet_address 
+              AND rtr.team_member_id = tm2.wallet_address
+            )
+          )
+        GROUP BY r.id, tm.wallet_address, rtr.reason, rtr.created_at
+        HAVING action_priority = 1
+      )
       SELECT 
         r.*,
-        rtr.team_member_id as veto_by,
-        rtr.reason as veto_reason,
-        rtr.created_at as veto_date
+        ma.member_address as veto_by,
+        tm.team_member_name as veto_by_name,
+        ma.action_reason as veto_reason,
+        ma.action_date as veto_date
       FROM referendums r
-      INNER JOIN referendum_team_roles rtr ON r.id = rtr.referendum_id AND rtr.role_type = ?
+      INNER JOIN member_actions ma ON r.id = ma.referendum_id
+      LEFT JOIN team_members tm ON ma.member_address = tm.wallet_address
       GROUP BY r.id
     `, [ReferendumAction.NO_WAY]);
 

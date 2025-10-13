@@ -1,5 +1,5 @@
 import { computed, reactive } from 'vue'
-import type { ProposalData, FilterOptions } from '../types'
+import type { ProposalData, FilterOptions, Chain } from '../types'
 import { authStore } from './authStore'
 import { ApiService } from '../utils/apiService'
 
@@ -149,10 +149,56 @@ export const proposalStore = {
     state.proposals = proposals
   },
 
-  async updateProposal(proposalId: string, updates: Partial<ProposalData>): Promise<void> {
-    const index = state.proposals.findIndex((p: ProposalData) => p.post_id.toString() === proposalId)
-    if (index !== -1) {
-      state.proposals[index] = { ...state.proposals[index], ...updates, updated_at: new Date().toISOString() }
+  async updateProposal(proposalId: number, chain: Chain, updates?: Partial<ProposalData>): Promise<void> {
+    try {
+      // First get fresh data from API
+      const apiService = ApiService.getInstance();
+      const freshData = await apiService.getProposal(proposalId, chain);
+      
+      if (!freshData) {
+        throw new Error('Failed to fetch updated proposal data');
+      }
+
+      // Find the proposal in our store
+      const index = state.proposals.findIndex(p => 
+        p.post_id === proposalId && p.chain === chain
+      );
+
+      if (index !== -1) {
+        // Create a new array to trigger reactivity
+        const newProposals = [...state.proposals];
+        
+        // Apply updates, ensuring undefined values override existing ones
+        newProposals[index] = {
+          ...freshData,
+          suggested_vote: updates?.suggested_vote === undefined ? undefined : freshData.suggested_vote,
+          assigned_to: updates?.assigned_to === null ? undefined : freshData.assigned_to,
+          updated_at: new Date().toISOString()
+        };
+
+        // Update the store with the new array
+        state.proposals = newProposals;
+
+        // Also update currentProposal if it matches
+        if (state.currentProposal?.post_id === proposalId && 
+            state.currentProposal?.chain === chain) {
+          state.currentProposal = newProposals[index];
+        }
+
+        console.log('Updated proposal in store:', {
+          id: proposalId,
+          chain,
+          status: newProposals[index].internal_status,
+          suggestedVote: newProposals[index].suggested_vote,
+          assignedTo: newProposals[index].assigned_to
+        });
+      } else {
+        // If not found, fetch all proposals to ensure we have the latest data
+        await this.fetchProposals();
+      }
+    } catch (error) {
+      console.error('Failed to update proposal:', error);
+      throw error;
     }
   },
 

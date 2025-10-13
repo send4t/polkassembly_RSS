@@ -29,7 +29,8 @@
         id="voting-tool-change-vote"
         class="control-btn vote-btn"
         @click="handleChangeVote"
-        :title="voteButtonTooltip"
+        :disabled="!isAssignedToMe"
+        :title="getVoteButtonTooltip"
       >
         <span class="btn-text">{{ suggestedVote || 'No Suggested Vote' }}</span>
       </button>
@@ -38,7 +39,8 @@
         id="voting-tool-team-actions"
         class="control-btn team-btn"
         @click="handleTeamActions"
-        :title="authStore.state.isAuthenticated ? 'Open team collaboration panel' : 'Click to connect wallet for team actions'"
+        :disabled="!authStore.state.isAuthenticated"
+        :title="getTeamActionsTooltip"
       >
         <span class="btn-text">Team Actions</span>
       </button>
@@ -58,6 +60,13 @@
       :proposal-id="proposalId"
       @close="closeAssignModal"
       @confirm="confirmAssign"
+    />
+
+    <UnassignModal
+      :show="showUnassignModal"
+      :proposal-id="proposalId"
+      @close="closeUnassignModal"
+      @confirm="confirmUnassign"
     />
 
     <VoteChangeModal 
@@ -98,9 +107,14 @@ import { ref, computed } from 'vue'
 import type { InternalStatus, SuggestedVote, Chain, TeamMember } from '../types'
 import { authStore } from '../stores/authStore'
 import { teamStore } from '../stores/teamStore'
+import { proposalStore } from '../stores/proposalStore'
 import { formatAddress } from '../utils/teamUtils'
+import { ApiService } from '../utils/apiService'
+
+const apiService = ApiService.getInstance()
 import StatusChangeModal from './modals/StatusChangeModal.vue'
 import AssignModal from './modals/AssignModal.vue'
+import UnassignModal from './modals/UnassignModal.vue'
 import VoteChangeModal from './modals/VoteChangeModal.vue'
 import TeamActionsPanel from './TeamActionsPanel.vue'
 import ConfirmModal from './modals/ConfirmModal.vue'
@@ -118,10 +132,17 @@ interface VotingControlsProps {
 }
 
 const props = defineProps<VotingControlsProps>()
+const emit = defineEmits<{
+  'update:status': [status: InternalStatus]
+  'update:suggestedVote': [vote: SuggestedVote | undefined]
+  'update:assignedTo': [assignedTo: string | null]
+  'proposal-updated': [data: { type: string; proposal: any; chain: Chain }]
+}>()
 
 // Modal states
 const showStatusModal = ref(false)
 const showAssignModal = ref(false)
+const showUnassignModal = ref(false)
 const showVoteModal = ref(false)
 const showTeamPanel = ref(false)
 const showConfirmModal = ref(false)
@@ -261,18 +282,21 @@ const assignButtonTooltip = computed(() => {
 /**
  * Computed property to determine if current user can unassign
  */
-const canUnassign = computed(() => {
+const isAssignedToMe = computed(() => {
   return authStore.state.isAuthenticated && 
          props.assignedTo && 
          addressesMatch(props.assignedTo, authStore.state.user?.address)
 })
 
-/**
- * Computed property for vote button tooltip that includes reason
- */
-const voteButtonTooltip = computed(() => {
+const canUnassign = computed(() => isAssignedToMe.value)
+
+const getVoteButtonTooltip = computed(() => {
   if (!authStore.state.isAuthenticated) {
-    return 'Click to connect wallet and vote'
+    return 'Please connect your wallet first'
+  }
+  
+  if (!isAssignedToMe.value) {
+    return 'Only the assigned person can change the vote'
   }
   
   if (props.suggestedVote) {
@@ -284,8 +308,16 @@ const voteButtonTooltip = computed(() => {
     return tooltip
   }
   
-  return 'Change suggested vote'
+  return 'Set suggested vote'
 })
+
+const getTeamActionsTooltip = computed(() => {
+  if (!authStore.state.isAuthenticated) {
+    return 'Please connect your wallet to access team actions'
+  }
+  return 'Open team collaboration panel'
+})
+
 
 const statusConfig = {
   'Not started': { color: '#6c757d', icon: '●' },
@@ -331,8 +363,18 @@ const saveStatusChange = async (data: { newStatus: InternalStatus; reason: strin
     console.log('Status change requested:', changeData)
     closeStatusModal()
     
-    // Emit custom event for parent to handle
-    window.dispatchEvent(new CustomEvent('statusChanged', { detail: changeData }))
+    // Emit events to update parent state
+    emit('update:status', data.newStatus);
+    
+    // Emit full update event
+    emit('proposal-updated', {
+      type: 'status',
+      proposal: {
+        ...changeData,
+        chain: props.chain
+      },
+      chain: props.chain
+    });
     
   } catch (error) {
     console.error('Failed to update status:', error)
@@ -353,27 +395,52 @@ const handleAssignToMe = () => {
   }
 }
 
-const handleUnassign = async () => {
-  confirmModalData.value = {
-    title: 'Unassign Proposal',
-    message: 'Are you sure you want to unassign yourself from this proposal?',
-    onConfirm: () => {
-      try {
-        const unassignData = {
-          proposalId: props.proposalId,
-          action: 'unassign'
-        }
-        
-        console.log('Unassignment requested:', unassignData)
-        
-        // Emit custom event for parent to handle
-        window.dispatchEvent(new CustomEvent('proposalUnassigned', { detail: unassignData }))
-      } catch (error) {
-        console.error('Failed to unassign proposal:', error)
-      }
+const handleUnassign = () => {
+  showUnassignModal.value = true
+}
+
+const closeUnassignModal = () => {
+  showUnassignModal.value = false
+}
+
+const confirmUnassign = async (unassignNote: string | undefined) => {
+  try {
+    console.log('Unassigning proposal with note:', unassignNote);
+    const result = await apiService.unassignFromReferendum(props.proposalId, props.chain, unassignNote);
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to unassign proposal');
     }
+    
+    console.log('Successfully unassigned from proposal');
+    closeUnassignModal();
+    
+    // Fetch updated proposal data
+    const updatedProposal = await apiService.getProposal(props.proposalId, props.chain);
+    if (!updatedProposal) {
+      throw new Error('Failed to fetch updated proposal data');
+    }
+    
+    // First update the store
+    await proposalStore.updateProposal(props.proposalId, props.chain);
+    
+    // Force a fresh fetch to ensure we have the latest data
+    const freshData = await apiService.getProposal(props.proposalId, props.chain);
+    if (!freshData) {
+      throw new Error('Failed to fetch updated proposal data');
+    }
+    
+    // Emit events to update parent state with fresh data
+    emit('update:status', freshData.internal_status as InternalStatus);
+    emit('update:suggestedVote', undefined); // Force suggested vote to undefined
+    emit('update:assignedTo', null);
+    
+    // Force a store refresh
+    await proposalStore.fetchProposals();
+  } catch (error) {
+    console.error('Failed to unassign proposal:', error);
+    alert(error instanceof Error ? error.message : 'Failed to unassign proposal');
   }
-  showConfirmModal.value = true
 }
 
 const closeAssignModal = () => {
@@ -404,6 +471,12 @@ const handleChangeVote = () => {
     showLoginPrompt('Please connect your wallet to change suggested votes.')
     return
   }
+  
+  if (!isAssignedToMe.value) {
+    alert('Only the assigned person can change the vote');
+    return;
+  }
+  
   showVoteModal.value = true
 }
 
@@ -412,21 +485,45 @@ const closeVoteModal = () => {
 }
 
 const saveVoteChange = async (data: { vote: '👍 Aye 👍' | '👎 Nay 👎' | '✌️ Abstain ✌️'; reason: string }) => {
+  if (!isAssignedToMe.value) {
+    alert('Only the assigned person can change the vote');
+    return;
+  }
   try {
-    const voteData = {
-      proposalId: props.proposalId,
-      vote: data.vote,
-      reason: data.reason
+    console.log('Suggested vote change requested:', { vote: data.vote, reason: data.reason });
+    closeVoteModal();
+    
+    // First update the vote
+    const result = await apiService.updateSuggestedVote(props.proposalId, props.chain, data.vote, data.reason);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to update suggested vote');
+    }
+
+    // Fetch updated proposal data
+    const updatedProposal = await apiService.getProposal(props.proposalId, props.chain);
+    if (!updatedProposal) {
+      throw new Error('Failed to fetch updated proposal data');
+    }
+
+    // First update the store
+    await proposalStore.updateProposal(props.proposalId, props.chain);
+    
+    // Force a fresh fetch to ensure we have the latest data
+    const freshData = await apiService.getProposal(props.proposalId, props.chain);
+    if (!freshData) {
+      throw new Error('Failed to fetch updated proposal data');
     }
     
-    console.log('Suggested vote change requested:', voteData)
-    closeVoteModal()
+    // Emit events to update parent state
+    emit('update:suggestedVote', freshData.suggested_vote as SuggestedVote | undefined);
+    emit('update:status', freshData.internal_status as InternalStatus);
     
-    // Emit custom event for parent to handle
-    window.dispatchEvent(new CustomEvent('suggestedVoteChanged', { detail: voteData }))
+    // Force a store refresh
+    await proposalStore.fetchProposals();
     
   } catch (error) {
-    console.error('Failed to update suggested vote:', error)
+    console.error('Failed to update suggested vote:', error);
+    alert(error instanceof Error ? error.message : 'Failed to update suggested vote');
   }
 }
 
@@ -435,6 +532,8 @@ const handleTeamActions = () => {
     showLoginPrompt('Please connect your wallet to access team collaboration features.')
     return
   }
+  
+  // Team actions are available to all authenticated users
   showTeamPanel.value = true
 }
 
@@ -600,27 +699,27 @@ const showLoginPrompt = (message: string) => {
 }
 
 .assign-btn {
-  background: linear-gradient(135deg, #28a745, #1e7e34);
+  background: var(--assign-gradient);
   color: white;
-  border: 1px solid #1e7e34;
+  border: 1px solid var(--assign-border);
 }
 
 .assign-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #1e7e34, #155724);
+  background: var(--assign-gradient-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+  box-shadow: 0 4px 12px var(--assign-shadow);
 }
 
 .vote-btn {
-  background: linear-gradient(135deg, #e6007a, #b3005f);
+  background: var(--primary-gradient);
   color: white;
-  border: 1px solid #b3005f;
+  border: 1px solid var(--primary-border);
 }
 
 .vote-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #b3005f, #8a0047);
+  background: var(--primary-gradient-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(230, 0, 122, 0.3);
+  box-shadow: 0 4px 12px var(--primary-shadow);
 }
 
 .btn-icon {
@@ -633,15 +732,15 @@ const showLoginPrompt = (message: string) => {
 
 /* Team Panel Styles */
 .team-btn {
-  background: linear-gradient(135deg, #17a2b8, #138496);
+  background: var(--team-gradient);
   color: white;
-  border: 1px solid #138496;
+  border: 1px solid var(--team-border);
 }
 
 .team-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #138496, #117a8b);
+  background: var(--team-gradient-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+  box-shadow: 0 4px 12px var(--team-shadow);
 }
 
 .team-panel-overlay {
