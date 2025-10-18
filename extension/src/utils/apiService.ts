@@ -162,7 +162,7 @@ export class ApiService {
     // Proposal CRUD methods
     async getProposal(postId: number, chain: Chain): Promise<ProposalData | null> {
         try {
-            const result = await this.request<{ success: boolean; referendum?: ProposalData; error?: string }>(`/dao/referendum/${postId}?chain=${chain}`);
+            const result = await this.request<{ success: boolean; referendum?: ProposalData; error?: string }>(`/referendums/${postId}?chain=${chain}`);
             return result.referendum || null;
         } catch (error) {
             console.error('Failed to fetch proposal:', error);
@@ -195,14 +195,11 @@ export class ApiService {
         }
     }
 
-    async assignProposal(postId: number, chain: Chain, action: string): Promise<{ success: boolean; error?: string }> {
+    async assignProposal(postId: number, chain: Chain): Promise<{ success: boolean; error?: string }> {
         try {
-            const result = await this.request<{ success: boolean; error?: string }>(`/dao/referendum/${postId}/action`, {
+            const result = await this.request<{ success: boolean; error?: string }>(`/referendums/${postId}/assign`, {
                 method: 'POST',
-                body: JSON.stringify({
-                    chain,
-                    action
-                }),
+                body: JSON.stringify({ chain }),
             });
 
             return result;
@@ -274,7 +271,7 @@ export class ApiService {
                 reason
             });
             
-            const result = await this.request<{ success: boolean; error?: string }>(`/dao/referendum/${postId}/action`, {
+            const result = await this.request<{ success: boolean; error?: string }>(`/referendums/${postId}/actions`, {
                 method: 'POST',
                 body: JSON.stringify({
                     chain,
@@ -306,7 +303,7 @@ export class ApiService {
                 return { success: false, error: `Unknown action: ${action}` };
             }
 
-            const result = await this.request<{ success: boolean; error?: string }>(`/dao/referendum/${postId}/action`, {
+            const result = await this.request<{ success: boolean; error?: string }>(`/referendums/${postId}/actions`, {
                 method: 'DELETE',
                 body: JSON.stringify({
                     chain,
@@ -327,7 +324,7 @@ export class ApiService {
 
     async unassignFromReferendum(postId: number, chain: Chain, unassignNote?: string): Promise<{ success: boolean; error?: string }> {
         try {
-            const result = await this.request<{ success: boolean; error?: string }>(`/dao/referendum/${postId}/unassign`, {
+            const result = await this.request<{ success: boolean; error?: string }>(`/referendums/${postId}/unassign`, {
                 method: 'POST',
                 body: JSON.stringify({
                     chain,
@@ -348,8 +345,30 @@ export class ApiService {
 
     async getTeamActions(postId: number, chain: Chain): Promise<ProposalAction[]> {
         try {
-            const result = await this.request<{ success: boolean; actions?: ProposalAction[]; error?: string }>(`/dao/referendum/${postId}/actions?chain=${chain}`);
-            return result.actions || [];
+            // Get team actions from the referendums endpoint
+            const result = await this.request<{ success: boolean; actions?: ProposalAction[]; error?: string }>(
+                `/referendums/${postId}/actions?chain=${chain}`
+            );
+
+            if (!result.success) {
+                console.error('Failed to fetch team actions:', result.error);
+                return [];
+            }
+
+            // Map backend action types to frontend types
+            const mappedActions = (result.actions || []).map(action => ({
+                ...action,
+                role_type: this.mapBackendActionToFrontend(action.role_type as string)
+            }));
+
+            console.log('📝 Team actions loaded:', {
+                postId,
+                chain,
+                rawActions: result.actions,
+                mappedActions
+            });
+
+            return mappedActions;
         } catch (error) {
             console.error('Failed to fetch team actions:', error);
             return [];
@@ -358,8 +377,72 @@ export class ApiService {
 
     async getAgreementSummary(postId: number, chain: Chain): Promise<AgreementSummary | null> {
         try {
-            const result = await this.request<{ success: boolean; summary?: AgreementSummary; error?: string }>(`/dao/referendum/${postId}/agreement-summary?chain=${chain}`);
-            return result.summary || null;
+            // Get team actions first
+            const actions = await this.getTeamActions(postId, chain);
+            if (!actions) {
+                return null;
+            }
+
+            // Get team members for required agreements count
+            const daoConfig = await this.getDAOConfig();
+            if (!daoConfig) {
+                return null;
+            }
+
+            // Calculate agreement summary
+            const agreed_members = actions
+                .filter(a => a.role_type === 'Agree')
+                .map(a => ({
+                    address: a.team_member_id,
+                    name: a.team_member_name || daoConfig.team_members.find(m => m.address === a.team_member_id)?.name || a.team_member_id
+                }));
+
+            const recused_members = actions
+                .filter(a => a.role_type === 'Recuse')
+                .map(a => ({
+                    address: a.team_member_id,
+                    name: a.team_member_name || daoConfig.team_members.find(m => m.address === a.team_member_id)?.name || a.team_member_id
+                }));
+
+            const to_be_discussed_members = actions
+                .filter(a => a.role_type === 'To be discussed')
+                .map(a => ({
+                    address: a.team_member_id,
+                    name: a.team_member_name || daoConfig.team_members.find(m => m.address === a.team_member_id)?.name || a.team_member_id
+                }));
+
+            // Find veto if any
+            const vetoAction = actions.find(a => a.role_type === 'NO WAY');
+            const vetoed = !!vetoAction;
+            const veto_by = vetoed ? (vetoAction.team_member_name || daoConfig.team_members.find(m => m.address === vetoAction.team_member_id)?.name || vetoAction.team_member_id) : null;
+            const veto_reason = vetoed ? vetoAction.reason : null;
+
+            // Calculate pending members (all team members minus those who took action)
+            const actionTakers = new Set([
+                ...agreed_members.map(m => m.address),
+                ...recused_members.map(m => m.address),
+                ...to_be_discussed_members.map(m => m.address),
+                ...(vetoed && vetoAction ? [vetoAction.team_member_id] : [])
+            ]);
+
+            const pending_members = daoConfig.team_members
+                .filter(m => !actionTakers.has(m.address))
+                .map(m => ({
+                    address: m.address,
+                    name: m.name
+                }));
+
+            return {
+                total_agreements: agreed_members.length,
+                required_agreements: daoConfig.required_agreements,
+                agreed_members,
+                pending_members,
+                recused_members,
+                to_be_discussed_members,
+                vetoed,
+                veto_by,
+                veto_reason
+            };
         } catch (error) {
             console.error('Failed to fetch agreement summary:', error);
             return null;
@@ -368,7 +451,7 @@ export class ApiService {
 
     async addComment(postId: number, chain: Chain, content: string): Promise<{ success: boolean; error?: string }> {
         try {
-            const result = await this.request<{ success: boolean; error?: string }>(`/dao/referendum/${postId}/comments`, {
+            const result = await this.request<{ success: boolean; error?: string }>(`/referendums/${postId}/comments`, {
                 method: 'POST',
                 body: JSON.stringify({
                     chain,
@@ -384,7 +467,7 @@ export class ApiService {
 
     async getComments(postId: number, chain: Chain): Promise<ProposalComment[]> {
         try {
-            const result = await this.request<{ success: boolean; comments?: ProposalComment[]; error?: string }>(`/dao/referendum/${postId}/comments?chain=${chain}`);
+            const result = await this.request<{ success: boolean; comments?: ProposalComment[]; error?: string }>(`/referendums/${postId}/comments?chain=${chain}`);
             return result.comments || [];
         } catch (error) {
             console.error('Failed to fetch comments:', error);
@@ -394,7 +477,7 @@ export class ApiService {
 
     async deleteComment(commentId: number): Promise<{ success: boolean; error?: string }> {
         try {
-            const result = await this.request<{ success: boolean; error?: string }>(`/dao/comments/${commentId}`, {
+            const result = await this.request<{ success: boolean; error?: string }>(`/comments/${commentId}`, {
                 method: 'DELETE'
             });
 
@@ -407,67 +490,40 @@ export class ApiService {
     // DAO configuration methods
     async getDAOConfig(): Promise<DAOConfig | null> {
         try {
-            // Use /dao/members endpoint instead of /dao/config
-            const result = await this.request<{ success: boolean; members?: TeamMember[]; error?: string }>('/dao/members');
-            
-            if (result.success && result.members) {
-                const config: DAOConfig = {
-                    team_members: result.members,
-                    required_agreements: 4, // Default value, could be made configurable
-                    name: 'OpenGov Voting Tool' // Simple static name
-                };
-                return config;
-            } else {
-                console.error('Failed to get DAO config:', result.error)
+            // Get members from /dao/members endpoint
+            const membersResult = await this.request<{ success: boolean; members?: TeamMember[]; error?: string }>('/dao/members')
+                .catch(error => {
+                    console.warn('Failed to get members from /dao/members:', error);
+                    return { success: false, error: error instanceof Error ? error.message : 'Failed to get members' };
+                });
+
+            if (!membersResult.success || !membersResult.members) {
+                console.error('Failed to get team members:', membersResult.error);
                 return null;
             }
-        } catch (error) {
-            console.error('Error getting DAO config:', error)
+
+            // Calculate required agreements based on team size (matching backend logic)
+            const requiredAgreements = membersResult.members.length > 0 
+                ? Math.ceil(membersResult.members.length / 2) 
+                : 4; // Default if no members found
+
+            // Construct config
+                    const config: DAOConfig = {
+                team_members: membersResult.members,
+                required_agreements: requiredAgreements,
+                name: 'OpenGov Voting Tool'
+            };
+
+                    return config;
+            } catch (error) {
+            console.error('Error getting DAO config:', error);
             return null;
         }
     }
 
-    async updateDAOConfig(config: Partial<DAOConfig>): Promise<{ success: boolean; error?: string }> {
-        try {
-            const result = await this.request<{ success: boolean; error?: string }>('/dao/config', {
-                method: 'PUT',
-                body: JSON.stringify(config)
-            });
-
-            return result;
-        } catch (error) {
-            return { success: false, error: error instanceof Error ? error.message : 'Failed to update DAO config' };
-        }
-    }
-
-    async triggerSync(type: 'normal' | 'deep' = 'normal'): Promise<{ success: boolean; message?: string; error?: string }> {
-        try {
-            const result = await this.request<{ 
-                success: boolean; 
-                message?: string; 
-                type?: string;
-                limit?: number;
-                timestamp?: string;
-                status?: string;
-                error?: string 
-            }>('/dao/sync', {
-                method: 'POST',
-                body: JSON.stringify({ type })
-            });
-
-            return {
-                success: result.success,
-                message: result.message,
-                error: result.error
-            };
-        } catch (error) {
-            return { 
-                success: false, 
-                error: error instanceof Error ? error.message : 'Failed to trigger sync' 
-            };
-        }
-    }
-
+    // Removed deprecated methods:
+    // - updateDAOConfig (config is now calculated from team members)
+    // - triggerSync (sync is now handled automatically by the backend)
 
 
     // List methods for different views
@@ -489,7 +545,7 @@ export class ApiService {
 
     async getProposalsByStatus(status: InternalStatus): Promise<ProposalData[]> {
         try {
-            const result = await this.request<{ success: boolean; referendums?: ProposalData[]; error?: string }>(`/referendums/status/${encodeURIComponent(status)}`);
+            const result = await this.request<{ success: boolean; referendums?: ProposalData[]; error?: string }>(`/referendums?status=${encodeURIComponent(status)}`);
             return result.referendums || [];
         } catch (error) {
             console.error('Failed to fetch proposals by status:', error);
@@ -618,16 +674,6 @@ export class ApiService {
         }
     }
 
-    async getProposalsNeedingAttention(): Promise<ProposalData[]> {
-        try {
-            const result = await this.request<{ success: boolean; referendums?: ProposalData[]; error?: string }>('/dao/needs-attention');
-            return result.referendums || [];
-        } catch (error) {
-            console.error('Failed to fetch proposals needing attention:', error);
-            return [];
-        }
-    }
-
     // Team workflow data method
     async getTeamWorkflowData(): Promise<{
         needsAgreement: ProposalData[];
@@ -636,7 +682,7 @@ export class ApiService {
         vetoedProposals: ProposalData[];
     }> {
         try {
-            // Try to get data from specific endpoint if it exists
+            // Try to get data from workflow endpoint
             try {
                 const result = await this.request<{
                     success: boolean;
@@ -657,43 +703,23 @@ export class ApiService {
                 console.warn('Team workflow endpoint failed:', endpointError);
             }
 
-            // Better fallback: try to get all proposals with team actions
+            // Fallback: try to get all proposals
             let allProposals: ProposalData[] = [];
             
             try {
-                // Try to get all proposals instead of specific filtered ones
                 const allProposalsResult = await this.request<{ 
                     success: boolean; 
                     referendums?: ProposalData[]; 
                     error?: string; 
-                }>('/dao/proposals');
+                }>('/proposals');
                 
                 if (allProposalsResult.success && allProposalsResult.referendums) {
                     allProposals = allProposalsResult.referendums;
-                    console.log('✅ Got all proposals from /dao/proposals:', allProposals.length);
+                    console.log('✅ Got all proposals from /proposals:', allProposals.length);
                 }
             } catch (error) {
-                console.warn('Could not get all proposals, trying individual methods');
-                
-                // Fallback: use only reliable methods and handle errors gracefully
-                const proposals: ProposalData[] = [];
-                
-                // Try each method individually and handle failures
-                try {
-                    const assignments = await this.getMyAssignments();
-                    proposals.push(...assignments);
-                } catch (error) {
-                    console.warn('getMyAssignments failed:', error);
-                }
-                
-                try {
-                    const needingAttention = await this.getProposalsNeedingAttention();
-                    proposals.push(...needingAttention);
-                } catch (error) {
-                    console.warn('getProposalsNeedingAttention failed:', error);
-                }
-                
-                allProposals = proposals;
+                console.warn('Could not get all proposals:', error);
+                allProposals = [];
             }
 
             // Deduplicate proposals
@@ -805,7 +831,7 @@ export class ApiService {
     // Method to trigger referendum refresh from Polkassembly
     async refreshReferenda(): Promise<void> {
         try {
-            await this.request(`/admin/refresh-referendas?limit=50`, {
+            await this.request(`/admin/refresh-referendas`, {
                 method: 'GET'
             });
             console.log('Referendum refresh request sent');

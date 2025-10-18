@@ -368,6 +368,23 @@ const loadData = async () => {
 const loadAgreementSummary = async () => {
   const summary = await apiService.getAgreementSummary(props.proposalId, props.chain)
   agreementSummary.value = summary
+  
+  // Determine current user's action by checking all action lists
+  if (summary && authStore.state.user?.address) {
+    const userAddress = authStore.state.user.address
+    
+    if (summary.agreed_members.some(m => m.address === userAddress)) {
+      currentUserAction.value = 'Agree'
+    } else if (summary.recused_members.some(m => m.address === userAddress)) {
+      currentUserAction.value = 'Recuse'
+    } else if (summary.to_be_discussed_members.some(m => m.address === userAddress)) {
+      currentUserAction.value = 'To be discussed'
+    } else if (summary.vetoed && summary.veto_by === authStore.state.user.name) {
+      currentUserAction.value = 'NO WAY'
+    } else {
+      currentUserAction.value = null
+    }
+  }
 }
 
 const loadComments = async () => {
@@ -406,6 +423,15 @@ const submitAction = async (action: TeamAction) => {
     if (result.success) {
       currentUserAction.value = action
       await loadAgreementSummary()
+      
+      // Emit event to notify other components (like MyDashboard) to refresh
+      window.dispatchEvent(new CustomEvent('teamActionChanged', {
+        detail: {
+          proposalId: props.proposalId,
+          chain: props.chain,
+          action: action
+        }
+      }))
     } else {
       showAlert('Action Failed', `Failed to submit action: ${result.error}`, 'error')
     }
@@ -425,6 +451,15 @@ const submitVeto = async () => {
       showVetoModal.value = false
       vetoReason.value = ''
       await loadAgreementSummary()
+      
+      // Emit event to notify other components (like MyDashboard) to refresh
+      window.dispatchEvent(new CustomEvent('teamActionChanged', {
+        detail: {
+          proposalId: props.proposalId,
+          chain: props.chain,
+          action: 'NO WAY'
+        }
+      }))
     } else {
       showAlert('Veto Failed', `Failed to veto proposal: ${result.error}`, 'error')
     }
